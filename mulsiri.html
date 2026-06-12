@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>물시리 딜 계산기</title>
+<style>
+:root {
+  --bg: #0d1117; --card: #161b22; --card2: #1c2128;
+  --accent: #58a6ff; --accent2: #bc8cff; --accent3: #56d364;
+  --text: #e6edf3; --sub: #7d8590;
+  --border: #30363d; --green: #3fb950; --yellow: #d29922; --red: #f85149;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', sans-serif; padding: 20px; min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 15% 40%, rgba(88,166,255,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 20%, rgba(86,211,100,0.05) 0%, transparent 55%);
+}
+h1 { text-align:center; font-size:1.6rem; padding:12px 0 4px;
+  background:linear-gradient(90deg,#58a6ff,#56d364); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.subtitle { text-align:center; color:var(--sub); font-size:0.83rem; margin-bottom:24px; }
+
+.layout { display:grid; grid-template-columns:380px 1fr; gap:16px; max-width:1100px; margin:0 auto; }
+@media(max-width:800px){ .layout{grid-template-columns:1fr;} }
+
+.card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; }
+.card-title { font-size:0.75rem; font-weight:600; color:var(--sub); text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
+.sec { font-size:0.72rem; color:var(--accent2); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin:14px 0 8px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+
+.row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.lbl { font-size:0.82rem; color:var(--sub); flex:1; }
+input[type=number] { background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:5px 8px; font-size:0.85rem; width:90px; outline:none; transition:border-color .2s; text-align:right; }
+input[type=number]:focus { border-color:var(--accent); }
+.unit { font-size:0.78rem; color:var(--sub); min-width:16px; }
+
+.results-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.stat-card { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+.stat-card .s-label { font-size:0.72rem; color:var(--sub); margin-bottom:4px; }
+.stat-card .s-val { font-size:1.15rem; font-weight:700; color:var(--accent); }
+.stat-card .s-sub { font-size:0.72rem; color:var(--sub); margin-top:2px; }
+
+.big-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.big-card { background:linear-gradient(135deg,rgba(88,166,255,0.08),rgba(86,211,100,0.08));
+  border:1px solid rgba(88,166,255,0.25); border-radius:10px; padding:18px; text-align:center; }
+.big-card .b-label { font-size:0.78rem; color:var(--sub); margin-bottom:6px; }
+.big-card .b-val { font-size:2rem; font-weight:900; color:var(--accent); line-height:1; }
+.big-card .b-sub { font-size:0.75rem; color:var(--sub); margin-top:6px; }
+.big-card.green { background:linear-gradient(135deg,rgba(86,211,100,0.08),rgba(88,166,255,0.08)); border-color:rgba(86,211,100,0.3); }
+.big-card.green .b-val { color:var(--accent3); }
+
+table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+th { background:var(--card2); padding:7px 10px; text-align:center; color:var(--sub); font-weight:500; border-bottom:1px solid var(--border); }
+th:first-child { text-align:left; }
+td { padding:7px 10px; border-bottom:1px solid var(--border); text-align:right; }
+td:first-child { text-align:left; color:var(--sub); }
+tr:last-child td { border-bottom:none; }
+.va { color:var(--accent); font-weight:600; }
+.vg { color:var(--green); font-weight:600; }
+
+.tip { background:rgba(210,153,34,0.08); border:1px solid rgba(210,153,34,0.25); border-radius:8px; padding:10px 14px; font-size:0.78rem; color:#fbbf24; margin-bottom:12px; line-height:1.6; }
+.req-box { background:rgba(86,211,100,0.08); border:1px solid rgba(86,211,100,0.25); border-radius:8px; padding:12px 16px; text-align:center; margin-bottom:12px; }
+.req-box .r-label { font-size:0.78rem; color:var(--sub); margin-bottom:4px; }
+.req-box .r-val { font-size:1.8rem; font-weight:900; color:var(--accent3); }
+.req-box .r-sub { font-size:0.75rem; color:var(--sub); margin-top:4px; }
+.req-ok { color:var(--green); font-weight:600; }
+.req-fail { color:var(--red); font-weight:600; }
+</style>
+</head>
+<body>
+<h1>물시리 딜 계산기</h1>
+<p class="subtitle">Made by 심판(시차) · 룬·아티 스탯을 입력하면 자동 계산됩니다</p>
+
+<div class="layout">
+<!-- 입력 -->
+<div>
+  <div class="card">
+    <div class="card-title">📥 룬 스탯 입력</div>
+    <p style="font-size:0.75rem;color:var(--sub);margin-bottom:10px">룬·아티로 증가한 수치만 입력 (기본 스탯 자동 반영)</p>
+    <div class="row"><span class="lbl">체력</span><input type="number" id="hp" value="8874"></div>
+    <div class="row"><span class="lbl">공격력</span><input type="number" id="atk" value="2000"></div>
+    <div class="row"><span class="lbl">방어력</span><input type="number" id="def" value="296"></div>
+    <div class="row"><span class="lbl">공격속도</span><input type="number" id="spd" value="215"></div>
+    <div class="row"><span class="lbl">치명피해 (기본+룬 합)</span><input type="number" id="cdmg" value="150"><span class="unit">%</span></div>
+
+    <div class="sec">아티팩트 추가피해 옵션</div>
+    <div class="row"><span class="lbl">체력 비례 추가피해</span><input type="number" id="a-hp" value="0.3" step="0.1"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">공격력 비례 추가피해</span><input type="number" id="a-atk" value="0"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">방어력 비례 추가피해</span><input type="number" id="a-def" value="0"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">공속 비례 추가피해</span><input type="number" id="a-spd" value="0"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">치명피해 합 (좋·나쁠수록)</span><input type="number" id="a-cdmg" value="35"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">공/방 강화효과 증가</span><input type="number" id="a-atkbuff" value="8"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">공속 증가효과 증가</span><input type="number" id="a-spdbuff" value="0"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">속성 주는 피해 증가</span><input type="number" id="a-ele" value="18"><span class="unit">%</span></div>
+
+    <div class="sec">기타</div>
+    <div class="row"><span class="lbl">투지 세트 수</span><input type="number" id="will" value="0" min="0" max="2"><span class="unit">개</span></div>
+
+    <div class="sec">속리더 · 선턴잡이 설정</div>
+    <div class="row"><span class="lbl">속리더 %</span><input type="number" id="leader" value="28"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">선턴잡이 기본속</span><input type="number" id="ac-base" value="115"></div>
+    <div class="row"><span class="lbl">선턴잡이 룬속</span><input type="number" id="ac-gear" value="237"></div>
+    <div class="row"><span class="lbl">선턴잡이 게증량</span><input type="number" id="ac-g" value="15"><span class="unit">%</span></div>
+
+    <div class="sec">상대방 (선택 입력)</div>
+    <div class="row"><span class="lbl">물뎀감</span><input type="number" id="dmgred" value="23"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl">피치명피해 감소</span><input type="number" id="cdmgred" value="15"><span class="unit">%</span></div>
+  </div>
+</div>
+
+<!-- 결과 -->
+<div>
+  <div class="big-grid">
+    <div class="big-card">
+      <div class="b-label">⚔️ 기대 데미지</div>
+      <div class="b-val" id="r-expect">-</div>
+      <div class="b-sub">스킬 딜 + 아티 딜 종합</div>
+    </div>
+    <div class="big-card green" id="req-card">
+      <div class="b-label">🏃 요구 뒷속</div>
+      <div class="b-val" id="r-req">-</div>
+      <div class="b-sub" id="r-req-sub">선턴잡이 기준 최소 룬 공속</div>
+    </div>
+  </div>
+
+  <div class="results-grid">
+    <div class="stat-card">
+      <div class="s-label">스킬 딜</div>
+      <div class="s-val" id="r-skill">-</div>
+      <div class="s-sub">공격력 × 치피 × 4.7 (피치명피해감소 반영)</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">아티 딜</div>
+      <div class="s-val" id="r-arti" style="color:var(--accent2)">-</div>
+      <div class="s-sub">스탯 비례 추가피해 합산</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">스킬 계수</div>
+      <div class="s-val" id="r-coef" style="color:var(--yellow)">4.7</div>
+      <div class="s-sub">고정값 (물시리 스킬 고유)</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">버프 후 공속</div>
+      <div class="s-val" id="r-spdbuf" style="color:var(--green)">-</div>
+      <div class="s-sub">속버프 + 공증 효과 포함</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 최종 스탯 상세</div>
+    <table>
+      <thead><tr><th>스탯</th><th>기본+룬</th><th>버프 후</th></tr></thead>
+      <tbody>
+        <tr><td>체력</td><td class="va" id="d-hp">-</td><td id="e-hp">-</td></tr>
+        <tr><td>공격력</td><td class="va" id="d-atk">-</td><td class="vg" id="e-atk">-</td></tr>
+        <tr><td>방어력</td><td class="va" id="d-def">-</td><td id="e-def">-</td></tr>
+        <tr><td>공격속도</td><td class="va" id="d-spd">-</td><td class="vg" id="e-spd">-</td></tr>
+        <tr><td>치명피해</td><td class="va" id="d-cdmg">-</td><td id="e-cdmg">-</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tip">
+    💡 <b>치명피해 합 (아티)</b>: 치명피해 증가 옵션은 양수, 감소는 음수로 입력하세요.<br>
+    <b>속리더 %</b>: 물시리의 속도 리더 효과(%)를 입력하세요. 선턴잡이 합속 계산에 사용됩니다.<br>
+    <b>선턴잡이 게증량</b>: 상대 선턴잡이가 첫 턴 후 부여하는 게이지 양(%)을 입력하세요.
+  </div>
+</div>
+</div>
+
+<script>
+function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
+function fmtD(n, d=2) { return n.toFixed(d); }
+
+function calc() {
+  // Inputs
+  const hp=v('hp'), atk=v('atk'), def=v('def'), spd=v('spd'), cdmg=v('cdmg');
+  const aHp=v('a-hp'), aAtk=v('a-atk'), aDef=v('a-def'), aSpd=v('a-spd');
+  const aCdmg=v('a-cdmg'), aAtkBuff=v('a-atkbuff'), aSpdBuff=v('a-spdbuff'), aEle=v('a-ele');
+  const will=v('will'), dmgRed=v('dmgred'), cdmgRed=v('cdmgred');
+  const leaderPct=v('leader'), acBase=v('ac-base'), acGear=v('ac-gear'), G=v('ac-g');
+
+  // Final stats (D열)
+  const D4 = 9885*1.4 + hp;
+  const D5 = 900*1.61 + atk + 900*0.08*will;
+  const D6 = 582*1.4 + def;
+  const D7 = Math.ceil(106*(1+0.15+0.28)) + spd - 1;
+  const D8 = cdmg + aCdmg + 50;
+
+  // Buffed stats (E열)
+  const E4 = D4;
+  const E5 = D5*(1+0.5*(1+aAtkBuff*0.01));
+  const E6 = D6;
+  const E7 = D7*(1+0.3*(1+aSpdBuff*0.01));
+  const E8 = D8;
+
+  // 스킬 딜 (피치명피해 감소 반영)
+  const F10 = 4.7;
+  const F12 = E5*(1+0.25+E8*0.01-cdmgRed*0.01)*F10;
+
+  // 아티 딜
+  const F13 = (E4*aHp + E5*aAtk + E6*aDef + E7*aSpd)*0.01;
+
+  // 기대 데미지 (1000/1140 = 고정 방어 비율)
+  const F15 = F12*(1+aEle*0.01-dmgRed*0.01)*(1000/1140) + F13*(1-dmgRed*0.01);
+
+  // 요구 공속 (F16 LET 수식 그대로 구현)
+  const leaderExtra = leaderPct > 1 ? leaderPct/100 : leaderPct;
+  const leaderFinal = 0.15 + leaderExtra;
+  const enh = aSpdBuff > 1 ? aSpdBuff/100 : aSpdBuff;
+  const ac_final = Math.ceil(acBase*(1+leaderFinal)) + acGear;
+  const T = Math.floor(100/(ac_final*0.07)) + 1;
+  const buffMul = 1 + 0.3*(1+enh);
+  const x = (ac_final*(T+1) - G/0.07) / (T + buffMul);
+  const sbMinFinal = Math.max(0, Math.floor(x)+1);
+  const b_base = Math.ceil(106*(1+leaderFinal));
+  const reqSpd = Math.max(0, sbMinFinal - b_base);
+
+  const curOk = spd >= reqSpd;
+
+  // 출력
+  document.getElementById('r-expect').textContent = fmt(F15);
+  document.getElementById('r-skill').textContent  = fmt(F12);
+  document.getElementById('r-arti').textContent   = fmtD(F13);
+  document.getElementById('r-spdbuf').textContent = fmtD(E7);
+
+  const reqEl = document.getElementById('r-req');
+  reqEl.textContent = reqSpd;
+  const subEl = document.getElementById('r-req-sub');
+  if (spd >= reqSpd) {
+    subEl.innerHTML = `현재 <b>${spd}</b> <span class="req-ok">✓ 충족</span>`;
+  } else {
+    subEl.innerHTML = `현재 <b>${spd}</b> <span class="req-fail">✗ 부족 (${reqSpd - spd} 더 필요)</span>`;
+  }
+
+  document.getElementById('d-hp').textContent   = fmt(D4);
+  document.getElementById('d-atk').textContent  = fmt(D5);
+  document.getElementById('d-def').textContent  = fmt(D6);
+  document.getElementById('d-spd').textContent  = fmtD(D7, 0);
+  document.getElementById('d-cdmg').textContent = fmtD(D8)+'%';
+
+  document.getElementById('e-hp').textContent   = fmt(E4);
+  document.getElementById('e-atk').textContent  = fmt(E5);
+  document.getElementById('e-def').textContent  = fmt(E6);
+  document.getElementById('e-spd').textContent  = fmtD(E7);
+  document.getElementById('e-cdmg').textContent = fmtD(E8)+'%';
+}
+
+document.querySelectorAll('input').forEach(el => el.addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>

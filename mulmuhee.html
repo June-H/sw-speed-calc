@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>물무희 딜 계산기</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --card: #111827;
+    --accent: #60a5fa;
+    --accent2: #a78bfa;
+    --gold: #f59e0b;
+    --text: #f1f5f9;
+    --sub: #94a3b8;
+    --border: #1e293b;
+    --green: #34d399;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(96,165,250,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(167,139,250,0.08) 0%, transparent 60%);
+  }
+
+  .container {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(96,165,250,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(96,165,250,0.3);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-size: 2.4rem;
+    font-weight: 900;
+    line-height: 1.2;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    color: var(--sub);
+    margin-bottom: 36px;
+    line-height: 1.6;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+    text-align: left;
+  }
+
+  .card-title {
+    font-size: 0.78rem;
+    color: var(--sub);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+
+  .feature-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--sub);
+    line-height: 1.5;
+  }
+
+  .feature-list li .icon {
+    color: var(--green);
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .feature-list li strong {
+    color: var(--text);
+  }
+
+  .info-box {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .info-box .info-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+  .info-box p {
+    font-size: 0.83rem;
+    color: #fcd34d;
+    line-height: 1.6;
+  }
+
+  .copy-btn {
+    display: block;
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 24px rgba(59,130,246,0.3);
+    margin-bottom: 12px;
+  }
+
+  .copy-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(59,130,246,0.45);
+  }
+
+  .copy-btn:active { transform: translateY(0); }
+
+  .copy-btn .btn-sub {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 400;
+    opacity: 0.8;
+    margin-top: 3px;
+  }
+
+  .note {
+    font-size: 0.78rem;
+    color: var(--sub);
+    line-height: 1.6;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  .steps {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .step {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+
+  .step-num {
+    width: 26px;
+    height: 26px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin: 0 auto 8px;
+  }
+
+  .step p {
+    font-size: 0.75rem;
+    color: var(--sub);
+    line-height: 1.4;
+  }
+
+  footer {
+    margin-top: 32px;
+    font-size: 0.75rem;
+    color: var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="badge">⚔️ 서머너즈 워</div>
+  <h1>물무희 딜 계산기</h1>
+  <p class="subtitle">
+    룬과 아티팩트 스탯을 입력하면<br>
+    예상 딜을 자동으로 계산해드립니다
+  </p>
+
+  <div class="card">
+    <div class="card-title">📋 계산기 기능</div>
+    <ul class="feature-list">
+      <li><span class="icon">✓</span><span><strong>체력/공격력/방어력/공속</strong> 룬 스탯 기반 최종 스탯 계산</span></li>
+      <li><span class="icon">✓</span><span><strong>아티팩트 옵션</strong> (체력/공격력/방어력/공속 비례 추가피해) 반영</span></li>
+      <li><span class="icon">✓</span><span><strong>버프 후 스탯</strong> 자동 계산 (공격력 버프, 속버프 포함)</span></li>
+      <li><span class="icon">✓</span><span><strong>투지 세트</strong> 효과 반영</span></li>
+      <li><span class="icon">✓</span><span><strong>상대 방어력 / 물뎀감</strong> 기반 기대 데미지 산출</span></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🚀 사용 방법</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <p>아래 버튼을 눌러 내 드라이브에 사본 복사</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <p><strong style="color:var(--text)">C열</strong>에 내 룬/아티 스탯 입력</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <p>기대 데미지 자동 계산 확인</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <span class="info-icon">💡</span>
+    <p>아래 버튼을 클릭하면 구글 스프레드시트 사본이 <strong>내 구글 드라이브</strong>에 복사됩니다. 원본은 수정되지 않으며, 복사된 파일은 본인만 소유합니다.</p>
+  </div>
+
+  <a class="copy-btn" href="https://docs.google.com/spreadsheets/d/12h_AAf46toLl3HKrlqjf4m9XZAAOM3I5/copy" target="_blank">
+    📋 내 구글 드라이브에 사본 복사하기
+    <span class="btn-sub">구글 계정 로그인 필요 · 원본 훼손 없음</span>
+  </a>
+
+  <p class="note">
+    버튼 클릭 시 구글 로그인 페이지로 이동할 수 있습니다.<br>
+    로그인 후 "사본 만들기"를 클릭하면 내 드라이브에 저장됩니다.
+  </p>
+
+  <footer>서머너즈 워 물무희 딜 계산기</footer>
+</div>
+</body>
+</html>

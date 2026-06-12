@@ -67,6 +67,21 @@ tr:last-child td { border-bottom:none; }
 .req-box .r-sub { font-size:0.75rem; color:var(--sub); margin-top:4px; }
 .req-ok { color:var(--green); font-weight:600; }
 .req-fail { color:var(--red); font-weight:600; }
+
+/* 버프 비교 */
+.buff-compare { display:flex; align-items:center; gap:10px; }
+.buff-col { flex:1; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:14px; text-align:center; }
+.buff-col.buff-on { border-color:rgba(63,185,80,0.3); background:rgba(63,185,80,0.05); }
+.buff-col.buff-off { border-color:rgba(248,81,73,0.3); background:rgba(248,81,73,0.05); }
+.bc-label { font-size:0.75rem; color:var(--sub); margin-bottom:6px; font-weight:600; }
+.bc-val { font-size:1.4rem; font-weight:900; color:var(--text); }
+.buff-col.buff-on .bc-val { color:var(--green); }
+.buff-col.buff-off .bc-val { color:var(--red); }
+.bc-sub { font-size:0.7rem; color:var(--sub); margin-top:4px; }
+.buff-diff { text-align:center; min-width:80px; }
+.bd-label { font-size:0.72rem; color:var(--sub); margin-bottom:4px; }
+.bd-val { font-size:1.1rem; font-weight:700; color:var(--yellow); }
+.bd-pct { font-size:0.78rem; color:var(--sub); margin-top:2px; }
 </style>
 </head>
 <body>
@@ -112,16 +127,38 @@ tr:last-child td { border-bottom:none; }
 
 <!-- 결과 -->
 <div>
-  <div class="big-grid">
-    <div class="big-card">
-      <div class="b-label">⚔️ 기대 데미지</div>
-      <div class="b-val" id="r-expect">-</div>
-      <div class="b-sub">스킬 딜 + 아티 딜 종합</div>
+  <!-- 공격강화 버프 비교 -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">⚔️ 공격강화 버프 비교</div>
+    <div class="buff-compare">
+      <div class="buff-col buff-on">
+        <div class="bc-label">🟢 버프 O</div>
+        <div class="bc-val" id="r-expect-on">-</div>
+        <div class="bc-sub">선턴잡이가 공격강화 부여</div>
+      </div>
+      <div class="buff-diff">
+        <div class="bd-label">차이</div>
+        <div class="bd-val" id="r-diff">-</div>
+        <div class="bd-pct" id="r-diff-pct">-</div>
+      </div>
+      <div class="buff-col buff-off">
+        <div class="bc-label">🔴 버프 X</div>
+        <div class="bc-val" id="r-expect-off">-</div>
+        <div class="bc-sub">공격강화 없을 때</div>
+      </div>
     </div>
+  </div>
+
+  <div class="big-grid">
     <div class="big-card green" id="req-card">
       <div class="b-label">🏃 요구 뒷속</div>
       <div class="b-val" id="r-req">-</div>
       <div class="b-sub" id="r-req-sub">선턴잡이 기준 최소 룬 공속</div>
+    </div>
+    <div class="big-card">
+      <div class="b-label">🎯 스킬 딜 (버프O)</div>
+      <div class="b-val" id="r-expect">-</div>
+      <div class="b-sub" id="r-skill-sub">아티 딜 포함</div>
     </div>
   </div>
 
@@ -197,15 +234,26 @@ function calc() {
   const E7 = D7*(1+0.3*(1+aSpdBuff*0.01));
   const E8 = D8;
 
-  // 스킬 딜 (피치명피해 감소 반영)
+  // 버프 O (공격강화 있음) - 현재 E5 그대로
+  // 버프 X (공격강화 없음) - 공격력 버프 없이 계산
+  const E5_off = D5; // 공격강화 버프 없을 때
+
   const F10 = 4.7;
+  // 버프 O 스킬 딜
   const F12 = E5*(1+0.25+E8*0.01-cdmgRed*0.01)*F10;
+  // 버프 X 스킬 딜
+  const F12_off = E5_off*(1+0.25+E8*0.01-cdmgRed*0.01)*F10;
 
-  // 아티 딜
+  // 아티 딜 (버프 O)
   const F13 = (E4*aHp + E5*aAtk + E6*aDef + E7*aSpd)*0.01;
+  // 아티 딜 (버프 X) - 공격력 비례 아티도 E5_off 사용
+  const F13_off = (E4*aHp + E5_off*aAtk + E6*aDef + E7*aSpd)*0.01;
 
-  // 기대 데미지 (1000/1140 = 고정 방어 비율)
-  const F15 = F12*(1+aEle*0.01-dmgRed*0.01)*(1000/1140) + F13*(1-dmgRed*0.01);
+  const defMult = (1+aEle*0.01-dmgRed*0.01)*(1000/1140);
+  // 기대 데미지 버프 O
+  const F15 = F12*defMult + F13*(1-dmgRed*0.01);
+  // 기대 데미지 버프 X
+  const F15_off = F12_off*defMult + F13_off*(1-dmgRed*0.01);
 
   // 요구 공속 (F16 LET 수식 그대로 구현)
   const leaderExtra = leaderPct > 1 ? leaderPct/100 : leaderPct;
@@ -221,8 +269,15 @@ function calc() {
 
   const curOk = spd >= reqSpd;
 
-  // 출력
-  document.getElementById('r-expect').textContent = fmt(F15);
+  // 출력 - 버프 비교
+  document.getElementById('r-expect-on').textContent  = fmt(F15);
+  document.getElementById('r-expect-off').textContent = fmt(F15_off);
+  document.getElementById('r-expect').textContent     = fmt(F15);
+  const diff = F15 - F15_off;
+  const pct = F15_off > 0 ? (diff/F15_off*100) : 0;
+  document.getElementById('r-diff').textContent     = '+' + fmt(diff);
+  document.getElementById('r-diff-pct').textContent = '+' + pct.toFixed(1) + '%';
+
   document.getElementById('r-skill').textContent  = fmt(F12);
   document.getElementById('r-arti').textContent   = fmtD(F13);
   document.getElementById('r-spdbuf').textContent = fmtD(E7);

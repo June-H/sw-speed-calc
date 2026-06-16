@@ -113,8 +113,8 @@ tr:last-child td { border-bottom: none; }
     <div class="row">
       <span class="lbl">콘텐츠</span>
       <div class="seg">
-        <button id="btn-arena" onclick="setMode('arena')">아레나 (7%)</button>
         <button class="on" id="btn-siege" onclick="setMode('siege')">점령전 (7%)</button>
+        <button id="btn-arena" onclick="setMode('arena')">실레나 (1.5%)</button>
       </div>
     </div>
     <div class="row">
@@ -135,6 +135,11 @@ tr:last-child td { border-bottom: none; }
         <button id="btn-ed" onclick="setEMode('direct')">합속 직접 입력</button>
         <button class="on" id="btn-ec" onclick="setEMode('calc')">기본공속 + 뒷속</button>
       </div>
+    </div>
+    <div class="row">
+      <button onclick="copyFastestAlly()" style="background:var(--card2);border:1px solid var(--border);color:var(--sub);border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--sub)'">
+        📋 아군 가장 빠른 몬스터로 자동 입력
+      </button>
     </div>
     <div id="e-direct" class="hidden">
       <div class="row">
@@ -215,8 +220,30 @@ const PRESETS = {
 
 function setMode(m) {
   mode = m;
-  document.getElementById('btn-arena').classList.toggle('on', m === 'arena');
+  // siege = 점령전(7%), arena = 실레나(1.5%)
   document.getElementById('btn-siege').classList.toggle('on', m === 'siege');
+  document.getElementById('btn-arena').classList.toggle('on', m === 'arena');
+}
+
+function copyFastestAlly() {
+  const ldr = +document.getElementById('leader').value || 0;
+  const tot = +document.getElementById('totem').value || 0;
+  const allies = [0,1,2].map(i => {
+    const base  = +document.getElementById(`bs-${i}`).value || 0;
+    const rune  = +document.getElementById(`rn-${i}`).value || 0;
+    const swift = document.getElementById(`sw-${i}`).checked;
+    return { base, rune, swift, speed: calcSpeed(base, rune, swift, ldr, tot) };
+  });
+  const fastest = allies.reduce((a,b) => a.speed >= b.speed ? a : b);
+
+  // 기본공속+뒷속 탭으로 전환 후 값 채우기
+  setEMode('calc');
+  document.getElementById('e-base').value  = fastest.base;
+  document.getElementById('e-rune').value  = fastest.rune;
+  document.getElementById('e-swift').checked = fastest.swift;
+  // 상대 리더/토템도 아군과 동일하게
+  document.getElementById('e-leader').value = ldr;
+  document.getElementById('e-totem').value  = tot;
 }
 function setEMode(m) {
   eMode = m;

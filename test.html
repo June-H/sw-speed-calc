@@ -205,18 +205,55 @@ const TICK_RATE = { arena: 0.07, siege: 0.015 };
 let mode = 'arena';
 let eMode = 'direct';
 
-const PRESETS = {
-  '직접 입력': null,
-  '빛하피(빛)': { base: 101, skills: [{ gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'none' }] },
-  '물가루다':   { base: 91,  skills: [{ gaugeAmt: 100, gaugeTgt: '2',  speedTgt: 'none' }] },
-  '풍조커':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍드라칸':   { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '암초코':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '물해왕':     { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍머메':     { base: 116, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍써니':     { base: 108, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'all'  }] },
-  '불발키리':   { base: 104, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-};
+// ─── MONSTER PRESETS ─────────────────────────────────────────
+// gaugeTgt: 'none'|'all'|'0'|'1'|'2'  (게이지 대상)
+// speedTgt: 'none'|'all'|'0'|'1'|'2'  (속버프 대상)
+const PRESET_GROUPS = [
+  {
+    label: '── 게이지 충전형 ──',
+    items: {
+      '빛하피':     { base: 101, gaugeAmt: 30,  gaugeTgt: 'all',  speedTgt: 'none', desc: '3스: 아군 전체 +30%' },
+      '물호박':     { base: 101, gaugeAmt: 30,  gaugeTgt: 'all',  speedTgt: 'none', desc: '3스: 아군 전체 +30%' },
+      '풍초코봉봉': { base: 103, gaugeAmt: 45,  gaugeTgt: 'all',  speedTgt: 'none', desc: '3스: 아군 전체 +45%' },
+      '물가루다':   { base: 91,  gaugeAmt: 100, gaugeTgt: 'none', speedTgt: 'none', desc: '2스: 특정 대상 +100% (가속)' },
+      '암하피':     { base: 101, gaugeAmt: 30,  gaugeTgt: 'all',  speedTgt: 'none', desc: '3스: 아군 전체 +30%' },
+    }
+  },
+  {
+    label: '── 속버프형 ──',
+    items: {
+      '풍써니':  { base: 108, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all',  desc: '2스: 아군 전체 속버프' },
+      '물무희':  { base: 101, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all',  desc: '2스: 아군 전체 속버프' },
+      '물시리':  { base: 106, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all',  desc: '2스: 아군 전체 속버프' },
+    }
+  },
+  {
+    label: '── 게이지+속버프 복합 ──',
+    items: {
+      '풍드라칸': { base: 101, gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'all', desc: '3스: 게이지 +30% + 속버프' },
+    }
+  },
+  {
+    label: '── 딜러 / 기타 ──',
+    items: {
+      '풍조커':   { base: 103, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '암초코':   { base: 103, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '물해왕':   { base: 101, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '풍머메':   { base: 116, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '불발키리': { base: 104, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '암마궁':   { base: 120, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '빛마궁':   { base: 105, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '물해적':   { base: 103, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '풍극지':   { base: 100, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '암닭':     { base: 102, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+      '풍해왕':   { base: 103, gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none', desc: '-' },
+    }
+  }
+];
+
+// flat map for lookup
+const PRESETS = { '직접 입력': null };
+PRESET_GROUPS.forEach(g => Object.assign(PRESETS, g.items));
 
 function setMode(m) {
   mode = m;
@@ -275,8 +312,20 @@ const tgtOpts = (includeAll) =>
   (includeAll ? `<option value="all">아군전체</option>` : '') +
   `<option value="0">몬1</option><option value="1">몬2</option><option value="2">몬3</option>`;
 
+function buildPresetOpts() {
+  let html = `<option value="직접 입력">직접 입력</option>`;
+  PRESET_GROUPS.forEach(g => {
+    html += `<optgroup label="${g.label}">`;
+    Object.keys(g.items).forEach(k => {
+      html += `<option value="${k}">${k}</option>`;
+    });
+    html += `</optgroup>`;
+  });
+  return html;
+}
+
 function renderMonsters() {
-  const presetOpts = Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
+  const presetOpts = buildPresetOpts();
   const defaults = [
     { name:'빛하피', base:101, rune:218, swift:true, arti:0, gAmt:30, gTgt:'all', sTgt:'none' },
     { name:'물가루다', base:91,  rune:176, swift:false, arti:0, gAmt:100, gTgt:'2', sTgt:'none' },
@@ -342,13 +391,36 @@ function setSelectVal(id, val) {
 function applyPreset(idx, name) {
   const p = PRESETS[name];
   if (!p) return;
+  // 이름, 기본공속 세팅
   document.getElementById(`nm-${idx}`).value = name;
   document.getElementById(`bs-${idx}`).value = p.base;
-  if (p.skills && p.skills[0]) {
-    document.getElementById(`ga-${idx}`).value = p.skills[0].gaugeAmt;
-    setSelectVal(`gt-${idx}`, p.skills[0].gaugeTgt);
-    setSelectVal(`st-${idx}`, p.skills[0].speedTgt);
+  // 스킬: 게이지 충전
+  document.getElementById(`ga-${idx}`).value = p.gaugeAmt ?? 0;
+  setSelectVal(`gt-${idx}`, p.gaugeTgt ?? 'none');
+  // 스킬: 속버프
+  setSelectVal(`st-${idx}`, p.speedTgt ?? 'none');
+
+  // 세팅 완료 토스트 표시
+  showToast(`${name} 프리셋 적용됨`);
+}
+
+function showToast(msg) {
+  let t = document.getElementById('preset-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'preset-toast';
+    t.style.cssText = `
+      position:fixed; bottom:24px; right:24px; background:var(--accent);
+      color:#fff; padding:8px 16px; border-radius:8px; font-size:0.83rem;
+      font-weight:600; opacity:0; transition:opacity .25s; z-index:9999;
+      pointer-events:none;
+    `;
+    document.body.appendChild(t);
   }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1800);
 }
 
 // Get monster data

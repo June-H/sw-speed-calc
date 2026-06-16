@@ -113,12 +113,12 @@ tr:last-child td { border-bottom: none; }
     <div class="row">
       <span class="lbl">콘텐츠</span>
       <div class="seg">
-        <button class="on" id="btn-arena" onclick="setMode('arena')">아레나 (7%)</button>
-        <button id="btn-siege" onclick="setMode('siege')">실레나 (1.5%)</button>
+        <button id="btn-arena" onclick="setMode('arena')">아레나 (7%)</button>
+        <button class="on" id="btn-siege" onclick="setMode('siege')">점령전 (7%)</button>
       </div>
     </div>
     <div class="row">
-      <span class="lbl">리더 공속 효과</span>
+      <span class="lbl">아군 리더 공속</span>
       <input type="number" id="leader" value="33" min="0" max="60"> %
     </div>
     <div class="row">
@@ -132,18 +132,29 @@ tr:last-child td { border-bottom: none; }
     <div class="card-title">🔴 상대 선턴잡이 설정</div>
     <div class="row">
       <div class="seg" style="width:100%">
-        <button class="on" id="btn-ed" onclick="setEMode('direct')">합속 직접 입력</button>
-        <button id="btn-ec" onclick="setEMode('calc')">기본공속 + 뒷속</button>
+        <button id="btn-ed" onclick="setEMode('direct')">합속 직접 입력</button>
+        <button class="on" id="btn-ec" onclick="setEMode('calc')">기본공속 + 뒷속</button>
       </div>
     </div>
-    <div id="e-direct" class="row">
-      <span class="lbl">상대 합속</span>
-      <input type="number" id="e-spd" value="396" min="1" style="width:90px">
+    <div id="e-direct" class="hidden">
+      <div class="row">
+        <span class="lbl">상대 합속</span>
+        <input type="number" id="e-spd" value="396" min="1" style="width:90px">
+      </div>
     </div>
-    <div id="e-calc" class="hidden">
+    <div id="e-calc">
       <div class="row"><span class="lbl">기본공속</span><input type="number" id="e-base" value="101" min="1"></div>
       <div class="row"><span class="lbl">뒷속</span><input type="number" id="e-rune" value="218" min="0"></div>
       <div class="row"><span class="lbl">신속 세트</span><input type="checkbox" id="e-swift"></div>
+      <div class="row">
+        <span class="lbl">상대 리더 공속</span>
+        <input type="number" id="e-leader" value="33" min="0" max="60"> %
+        <span style="font-size:0.74rem;color:var(--sub)">(아군과 다를 수 있음)</span>
+      </div>
+      <div class="row">
+        <span class="lbl">상대 토템 공속</span>
+        <input type="number" id="e-totem" value="15" min="0" max="30"> %
+      </div>
     </div>
   </div>
 
@@ -214,6 +225,8 @@ function setEMode(m) {
   document.getElementById('e-direct').classList.toggle('hidden', m !== 'direct');
   document.getElementById('e-calc').classList.toggle('hidden', m !== 'calc');
 }
+// 초기 모드: 점령전, 기본공속+뒷속 탭
+setEMode('calc');
 
 // Speed calc
 function calcSpeed(base, runeDisp, hasSwift, ldr, tot) {
@@ -335,8 +348,9 @@ function getEnemySpeed() {
   const base  = +document.getElementById('e-base').value || 0;
   const rune  = +document.getElementById('e-rune').value || 0;
   const swift = document.getElementById('e-swift').checked;
-  const ldr   = +document.getElementById('leader').value || 0;
-  const tot   = +document.getElementById('totem').value || 0;
+  // 상대 리더/토템은 별도 입력 사용
+  const ldr   = +document.getElementById('e-leader').value || 0;
+  const tot   = +document.getElementById('e-totem').value  || 0;
   return calcSpeed(base, rune, swift, ldr, tot);
 }
 

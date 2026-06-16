@@ -3,324 +3,623 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚡ 서머너즈 워 공속 계산기</title>
+<title>서머너즈 워 공속 계산기</title>
 <style>
-:root{
-  --bg:#0d1117;--card:#161b22;--card2:#1c2128;
-  --accent:#58a6ff;--accent2:#bc8cff;--green:#3fb950;
-  --yellow:#d29922;--red:#f85149;--text:#e6edf3;--sub:#7d8590;--border:#30363d;
+:root {
+  --bg: #0d1117; --card: #161b22; --card2: #1c2128;
+  --accent: #7c6ff7; --accent2: #58a6ff;
+  --text: #e6edf3; --sub: #7d8590;
+  --border: #30363d; --green: #3fb950; --yellow: #d29922; --red: #f85149;
 }
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;padding:20px;}
-h1{text-align:center;font-size:1.5rem;padding:12px 0 20px;background:linear-gradient(90deg,#58a6ff,#bc8cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.wrap{max-width:1000px;margin:0 auto;}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 16px; min-height: 100vh; }
+h1 { text-align: center; font-size: 1.5rem; padding: 12px 0 20px; background: linear-gradient(90deg,#7c6ff7,#58a6ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-/* Settings */
-.settings{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
-.si{display:flex;align-items:center;gap:8px;font-size:0.85rem;}
-.si label{color:var(--sub);}
-.si input[type=number]{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 8px;width:65px;font-size:0.85rem;outline:none;text-align:right;}
-.si input:focus{border-color:var(--accent);}
-.seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
-.seg button{background:transparent;border:none;color:var(--sub);padding:5px 12px;font-size:0.8rem;cursor:pointer;transition:all .2s;}
-.seg button.on{background:var(--accent);color:#fff;}
+.layout { display: grid; grid-template-columns: 420px 1fr; gap: 16px; max-width: 1300px; margin: 0 auto; }
+@media(max-width:900px){ .layout { grid-template-columns: 1fr; } }
 
-/* Layout */
-.layout{display:grid;grid-template-columns:260px 1fr;gap:14px;}
-@media(max-width:700px){.layout{grid-template-columns:1fr;}}
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.card-title { font-size: 0.82rem; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
 
-/* Preset list */
-.preset-list{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;}
-.preset-list h3{font-size:0.72rem;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
-.preset-btn{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;text-align:left;cursor:pointer;margin-bottom:6px;font-size:0.82rem;transition:all .2s;display:flex;align-items:center;gap:8px;}
-.preset-btn:hover{border-color:var(--accent);background:rgba(88,166,255,0.05);}
-.preset-btn.active{border-color:var(--accent);background:rgba(88,166,255,0.1);color:var(--accent);}
+.row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.lbl { font-size: 0.83rem; color: var(--sub); min-width: 110px; }
+input[type=number], input[type=text], select {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 5px 8px; font-size: 0.85rem; outline: none;
+  transition: border-color .2s;
+}
+input[type=number]:focus, input[type=text]:focus, select:focus { border-color: var(--accent); }
+input[type=number] { width: 80px; }
+input[type=text] { width: 120px; }
+input[type=checkbox] { width:15px; height:15px; accent-color: var(--accent); cursor:pointer; }
 
-/* Right panel */
-.right-panel{display:flex;flex-direction:column;gap:14px;}
+.seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button {
+  flex: 1; background: transparent; border: none; color: var(--sub);
+  padding: 5px 10px; font-size: 0.82rem; cursor: pointer; transition: all .2s;
+}
+.seg button.on { background: var(--accent); color: #fff; }
 
-/* Input card */
-.input-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;}
-.card-title{font-size:0.72rem;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;}
-.empty-state{text-align:center;padding:28px;color:var(--sub);font-size:0.85rem;line-height:1.8;}
+.monster-block { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+.monster-block h3 { font-size: 0.8rem; color: var(--accent2); margin-bottom: 10px; font-weight: 600; }
+.m-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.m-lbl { font-size: 0.78rem; color: var(--sub); min-width: 90px; }
+.m-row input[type=number] { width: 70px; }
+.m-row select { width: 140px; }
 
-.m-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;}
-.m-row:last-child{margin-bottom:0;}
-.m-row.lead{border-color:rgba(88,166,255,0.35);background:rgba(88,166,255,0.05);}
-.m-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0;}
-.m-num.n1{background:rgba(88,166,255,0.2);color:var(--accent);}
-.m-num.n2{background:rgba(63,185,80,0.2);color:var(--green);}
-.m-num.n3{background:rgba(188,140,255,0.2);color:var(--accent2);}
-.m-name{font-size:0.88rem;font-weight:600;min-width:72px;}
-.m-lbl{font-size:0.76rem;color:var(--sub);flex:1;}
-.m-inp{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;width:80px;font-size:0.88rem;text-align:right;outline:none;transition:border-color .2s;}
-.m-inp:focus{border-color:var(--accent);}
-.m-unit{font-size:0.74rem;color:var(--sub);min-width:16px;}
-.badge{font-size:0.68rem;padding:2px 7px;border-radius:4px;white-space:nowrap;border:1px solid;}
-.b-gauge{background:rgba(63,185,80,0.1);color:var(--green);border-color:rgba(63,185,80,0.3);}
-.b-speed{background:rgba(88,166,255,0.1);color:var(--accent);border-color:rgba(88,166,255,0.3);}
+.skill-box { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.skill-title { font-size: 0.72rem; color: var(--sub); margin-bottom: 6px; }
+.skill-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.78rem; flex-wrap: wrap; }
+.skill-row select { width: 90px; font-size: 0.76rem; padding: 3px 5px; }
+.skill-row input[type=number] { width: 55px; font-size: 0.76rem; padding: 3px 5px; }
 
-/* Result */
-.result-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;}
-table{width:100%;border-collapse:collapse;font-size:0.85rem;}
-th{background:var(--card2);padding:8px 12px;color:var(--sub);font-weight:500;border-bottom:1px solid var(--border);text-align:right;}
-th:first-child,th:nth-child(2){text-align:left;}
-td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:right;}
-td:first-child,td:nth-child(2){text-align:left;}
-tr:last-child td{border-bottom:none;}
-.c-req{font-weight:700;font-size:1.05rem;}
-.c1{color:var(--accent);}
-.c2{color:var(--green);}
-.c3{color:var(--accent2);}
-.c-sub{color:var(--sub);}
+.calc-btn {
+  width: 100%; padding: 11px; background: var(--accent); color: #fff;
+  border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+  cursor: pointer; transition: opacity .2s; margin-top: 4px;
+}
+.calc-btn:hover { opacity: .85; }
 
-.buff-flow{margin-top:12px;padding:10px 14px;background:var(--card2);border-radius:8px;font-size:0.8rem;}
-.bf-title{color:var(--sub);font-size:0.7rem;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
-.bf-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
-.bf-row:last-child{margin-bottom:0;}
-.notice{margin-top:10px;font-size:0.74rem;color:var(--sub);padding:8px 12px;background:rgba(210,153,34,0.05);border:1px solid rgba(210,153,34,0.2);border-radius:6px;line-height:1.6;}
+/* Results */
+.hidden { display: none; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th { background: var(--card2); padding: 7px 10px; text-align: left; color: var(--sub); font-weight: 500; border-bottom: 1px solid var(--border); }
+td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+
+.val { color: var(--accent2); font-weight: 600; }
+.tag { display:inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+.tg-ally { background: rgba(63,185,80,.15); color: var(--green); }
+.tg-enemy { background: rgba(248,81,73,.15); color: var(--red); }
+.tg-ok { background: rgba(63,185,80,.15); color: var(--green); }
+.tg-fail { background: rgba(248,81,73,.15); color: var(--red); }
+.tg-info { background: rgba(124,111,247,.15); color: var(--accent); }
+
+.timeline { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.t-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; font-size: 0.8rem; }
+.t-row:hover { background: var(--card2); }
+.t-tick { color: var(--sub); min-width: 32px; font-size: 0.72rem; }
+.t-ev { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 4px; background: var(--card2); border-left: 3px solid; }
+.t-ev.ally { border-color: var(--green); }
+.t-ev.enemy { border-color: var(--red); }
+.t-eff { font-size: 0.72rem; color: var(--yellow); }
+.t-g { font-size: 0.7rem; color: var(--sub); }
+
+.an-block { margin-bottom: 16px; }
+.an-name { font-size: 0.82rem; color: var(--yellow); font-weight: 600; margin-bottom: 8px; }
+.an-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; flex-wrap: wrap; gap: 6px; }
+.an-row:last-child { border-bottom: none; }
+
+/* 필요 최저 뒷속 요약 */
+.min-rune-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+.min-rune-table th { background:var(--card2); padding:7px 12px; text-align:left; color:var(--sub); font-weight:500; border-bottom:1px solid var(--border); }
+.min-rune-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
+.min-rune-table tr:last-child td { border-bottom:none; }
+.min-rune-val { font-size:1.1rem; font-weight:700; color:var(--accent2); }
+.min-rune-ok  { color:var(--green); font-size:0.75rem; font-weight:600; }
+.min-rune-fail{ color:var(--red);   font-size:0.75rem; font-weight:600; }
+.min-rune-note{ font-size:0.74rem; color:var(--sub); margin-top:8px; padding:6px 10px; background:rgba(88,166,255,0.05); border-radius:6px; border:1px solid var(--border); }
 </style>
 </head>
 <body>
-<div class="wrap">
-<h1>⚡ 공속 순서 계산기</h1>
-
-<!-- Settings -->
-<div class="settings">
-  <div class="si">
-    <label>모드</label>
-    <div class="seg">
-      <button class="on" id="btn-arena" onclick="setMode('arena',this)">아레나</button>
-      <button id="btn-siege" onclick="setMode('siege',this)">점령전</button>
-    </div>
-  </div>
-  <div class="si"><label>리더 공속</label><input type="number" id="leader" value="33" min="0" max="60"> %</div>
-  <div class="si"><label>토템 공속</label><input type="number" id="totem"  value="0"  min="0" max="30"> %</div>
-</div>
+<h1>⚔️ 서머너즈 워 공속 계산기</h1>
 
 <div class="layout">
-<!-- Presets -->
-<div class="preset-list">
-  <h3>조합 선택</h3>
-  <div id="preset-btns"></div>
+<!-- LEFT: INPUTS -->
+<div>
+  <!-- 전투 설정 -->
+  <div class="card">
+    <div class="card-title">⚙️ 전투 설정</div>
+    <div class="row">
+      <span class="lbl">콘텐츠</span>
+      <div class="seg">
+        <button class="on" id="btn-arena" onclick="setMode('arena')">아레나 (7%)</button>
+        <button id="btn-siege" onclick="setMode('siege')">실레나 (1.5%)</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="lbl">리더 공속 효과</span>
+      <input type="number" id="leader" value="33" min="0" max="60"> %
+    </div>
+    <div class="row">
+      <span class="lbl">토템 공속 효과</span>
+      <input type="number" id="totem" value="15" min="0" max="30"> %
+    </div>
+  </div>
+
+  <!-- 상대방 -->
+  <div class="card">
+    <div class="card-title">🔴 상대 선턴잡이 설정</div>
+    <div class="row">
+      <div class="seg" style="width:100%">
+        <button class="on" id="btn-ed" onclick="setEMode('direct')">합속 직접 입력</button>
+        <button id="btn-ec" onclick="setEMode('calc')">기본공속 + 뒷속</button>
+      </div>
+    </div>
+    <div id="e-direct" class="row">
+      <span class="lbl">상대 합속</span>
+      <input type="number" id="e-spd" value="396" min="1" style="width:90px">
+    </div>
+    <div id="e-calc" class="hidden">
+      <div class="row"><span class="lbl">기본공속</span><input type="number" id="e-base" value="101" min="1"></div>
+      <div class="row"><span class="lbl">뒷속</span><input type="number" id="e-rune" value="218" min="0"></div>
+      <div class="row"><span class="lbl">신속 세트</span><input type="checkbox" id="e-swift"></div>
+    </div>
+  </div>
+
+  <!-- 아군 몬스터 -->
+  <div class="card">
+    <div class="card-title">🟢 아군 몬스터 (3마리)</div>
+    <div id="monsters"></div>
+  </div>
+
+  <button class="calc-btn" onclick="calculate()">📊 계산하기</button>
 </div>
 
-<!-- Right -->
-<div class="right-panel">
-  <div class="input-card">
-    <div class="card-title">공속 입력</div>
-    <div id="m-inputs"><div class="empty-state">← 조합을 선택하세요</div></div>
+<!-- RIGHT: RESULTS -->
+<div id="results" class="hidden">
+  <!-- ★ 필요 최저 뒷속 요약 -->
+  <div class="card">
+    <div class="card-title">⚡ 필요 최저 뒷속 요약</div>
+    <div id="min-rune-summary"></div>
   </div>
-  <div class="result-card">
-    <div class="card-title">계산 결과</div>
-    <div id="result"><div class="empty-state">조합과 선턴잡이 뒷속을<br>입력하면 결과가 표시됩니다</div></div>
+
+  <div class="card">
+    <div class="card-title">합속 및 기본 스텟</div>
+    <table><thead><tr>
+      <th>몬스터</th><th>합속</th><th>틱당 게이지</th><th>첫 턴 (틱)</th><th>속버프 후 합속</th>
+    </tr></thead>
+    <tbody id="stat-body"></tbody></table>
   </div>
-</div>
+
+  <div class="card">
+    <div class="card-title">턴 순서 시뮬레이션</div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">중턴 연계 최소 뒷속 분석</div>
+    <div id="analysis"></div>
+  </div>
 </div>
 </div>
 
 <script>
-// ─── PRESET DATA ──────────────────────────────────
-// skill: {type:'gauge'|'speed', amount:N, target:idx}
-const PRESETS = [
-  { id:'hc', name:'빛하피 + 풍초코 + 풍조커', icon:'🧚',
-    monsters:[
-      {name:'빛하피',  base:120, skill:{type:'gauge',amount:30,  target:1}},
-      {name:'풍초코',  base:103, skill:{type:'gauge',amount:45,  target:2}},
-      {name:'풍조커',  base:103, skill:null}
-    ]},
-  { id:'hg', name:'빛하피 + 물가루다 + 풍조커', icon:'🌊',
-    monsters:[
-      {name:'빛하피',  base:101, skill:{type:'gauge',amount:30,  target:1}},
-      {name:'물가루다',base:91,  skill:{type:'gauge',amount:100, target:2}},
-      {name:'풍조커',  base:103, skill:null}
-    ]},
-  { id:'dh', name:'풍드라칸 + 빛하피 + 풍조커', icon:'🐉',
-    monsters:[
-      {name:'풍드라칸',base:101, skill:{type:'speed',amount:0,   target:1}},
-      {name:'빛하피',  base:101, skill:{type:'gauge',amount:30,  target:2}},
-      {name:'풍조커',  base:103, skill:null}
-    ]},
-  { id:'mh', name:'물무희 + 물호박', icon:'🎃',
-    monsters:[
-      {name:'물호박',  base:101, skill:{type:'gauge',amount:30,  target:1}},
-      {name:'물무희',  base:101, skill:{type:'speed',amount:0,   target:2}}
-    ]},
-  { id:'mp', name:'물해적 + 풍극지', icon:'⚓',
-    monsters:[
-      {name:'물해적',  base:103, skill:{type:'gauge',amount:30,  target:1}},
-      {name:'풍극지',  base:100, skill:null}
-    ]},
-  { id:'cu', name:'커스텀 (3마리)', icon:'⚙️', custom:true }
-];
+const TICK_RATE = { arena: 0.07, siege: 0.015 };
+let mode = 'arena';
+let eMode = 'direct';
 
-// ─── STATE ────────────────────────────────────────
-let sel = null;
-const NC = ['n1','n2','n3'];
-const CC = ['c1','c2','c3'];
-const CO = ['#58a6ff','#3fb950','#bc8cff'];
+const PRESETS = {
+  '직접 입력': null,
+  '빛하피(빛)': { base: 101, skills: [{ gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'none' }] },
+  '물가루다':   { base: 91,  skills: [{ gaugeAmt: 100, gaugeTgt: '2',  speedTgt: 'none' }] },
+  '풍조커':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+  '풍드라칸':   { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+  '암초코':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+  '물해왕':     { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+  '풍머메':     { base: 116, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+  '풍써니':     { base: 108, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'all'  }] },
+  '불발키리':   { base: 104, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+};
 
-// ─── INIT ─────────────────────────────────────────
-(function init() {
-  const cont = document.getElementById('preset-btns');
-  PRESETS.forEach(p => {
-    const b = document.createElement('button');
-    b.className='preset-btn'; b.id='pb-'+p.id;
-    b.innerHTML=`${p.icon} ${p.name}`;
-    b.onclick=()=>pick(p);
-    cont.appendChild(b);
-  });
-  document.getElementById('leader').oninput = compute;
-  document.getElementById('totem').oninput  = compute;
-})();
-
-function setMode(m,btn) {
-  document.getElementById('btn-arena').classList.toggle('on',m==='arena');
-  document.getElementById('btn-siege').classList.toggle('on',m==='siege');
-  document.getElementById('leader').value = m==='siege'?28:33;
-  document.getElementById('totem').value  = m==='siege'?15:0;
-  compute();
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-arena').classList.toggle('on', m === 'arena');
+  document.getElementById('btn-siege').classList.toggle('on', m === 'siege');
+}
+function setEMode(m) {
+  eMode = m;
+  document.getElementById('btn-ed').classList.toggle('on', m === 'direct');
+  document.getElementById('btn-ec').classList.toggle('on', m === 'calc');
+  document.getElementById('e-direct').classList.toggle('hidden', m !== 'direct');
+  document.getElementById('e-calc').classList.toggle('hidden', m !== 'calc');
 }
 
-// ─── SELECT PRESET ────────────────────────────────
-function pick(p) {
-  sel = p;
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('pb-'+p.id)?.classList.add('active');
-  buildInputs(p);
-  compute();
-}
-
-function buildInputs(p) {
-  const c = document.getElementById('m-inputs');
-  c.innerHTML='';
-  const mons = p.custom ? customMons() : p.monsters;
-
-  mons.forEach((m,i) => {
-    const row = document.createElement('div');
-    row.className = 'm-row'+(i===0?' lead':'');
-
-    const badge = m.skill
-      ? `<span class="badge ${m.skill.type==='gauge'?'b-gauge':'b-speed'}">
-           ${m.skill.type==='gauge'?`게이지 +${m.skill.amount}%`:'속버프'}
-         </span>`
-      : '';
-
-    if(i===0) {
-      row.innerHTML=`
-        <div class="m-num ${NC[i]}">${i+1}</div>
-        <div class="m-name" style="color:${CO[i]}">${m.name}</div>
-        <div class="m-lbl">뒷속 입력 <span style="font-size:.7rem">(기본속 ${m.base})</span></div>
-        <input class="m-inp" type="number" id="r0" value="220" min="0" oninput="compute()">
-        ${badge}
-      `;
-    } else {
-      row.innerHTML=`
-        <div class="m-num ${NC[i]}">${i+1}</div>
-        <div class="m-name" style="color:${CO[i]}">${m.name}</div>
-        <div class="m-lbl">공속아티 % <span style="font-size:.7rem">(기본속 ${m.base})</span></div>
-        <input class="m-inp" type="number" id="a${i}" value="0" min="0" max="100" oninput="compute()">
-        <span class="m-unit">%</span>
-        ${badge}
-      `;
-    }
-    c.appendChild(row);
-  });
-}
-
-function customMons() {
-  return [
-    {name:'몬1',base:101,skill:{type:'gauge',amount:30,target:1}},
-    {name:'몬2',base:101,skill:{type:'gauge',amount:30,target:2}},
-    {name:'몬3',base:103,skill:null}
-  ];
-}
-
-// ─── CORE CALCULATION ─────────────────────────────
-function compute() {
-  if(!sel) return;
-  const ldr   = parseFloat(document.getElementById('leader').value)||0;
-  const tot   = parseFloat(document.getElementById('totem').value)||0;
-  const rate  = (ldr+tot)/100;
-  const TR    = 0.07;
-  const r0el  = document.getElementById('r0');
-  if(!r0el) return;
-  const rune0 = parseFloat(r0el.value)||0;
-
-  const mons = sel.custom ? customMons() : sel.monsters;
-
-  // Monster 1
-  const b1   = Math.ceil(mons[0].base*(1+rate));
-  const spd1 = b1+rune0;
-  const T1   = Math.floor(100/(spd1*TR))+1;
-
-  const results = [{name:mons[0].name,base:mons[0].base,rune:rune0,final:spd1,T:T1}];
-
-  // Monsters 2+
-  for(let i=1;i<mons.length;i++){
-    const m   = mons[i];
-    const Ti  = T1+i;
-    const bi  = Math.ceil(m.base*(1+rate));
-    const prev= mons[i-1];
-    const arti= parseFloat(document.getElementById(`a${i}`)?.value)||0;
-
-    let minSpd;
-    if(prev.skill?.type==='speed'){
-      // Speed buff: (spd1*Ti) / (Tj + buffMul*(Ti-Tj))
-      const Tj     = T1+(i-1);
-      const bMul   = 1+0.3*(1+arti/100);
-      minSpd = Math.ceil(spd1*Ti/(Tj+bMul*(Ti-Tj)))+1;
-    } else {
-      // Gauge buff
-      const G = prev.skill?.amount||0;
-      minSpd = Math.ceil(spd1 - G/(TR*Ti))+1;
-    }
-
-    const rune_i = Math.max(0, minSpd-bi);
-    results.push({name:m.name,base:m.base,rune:rune_i,final:bi+rune_i,T:Ti});
+// Speed calc
+function calcSpeed(base, runeDisp, hasSwift, ldr, tot) {
+  const mult = 1 + ldr/100 + tot/100;
+  if (hasSwift) {
+    const swRaw = base * 0.25;
+    const swCeil = Math.ceil(swRaw);
+    return Math.ceil(base * mult + (runeDisp - swCeil) + swRaw);
   }
-
-  renderResults(results, mons);
+  return Math.ceil(base * mult + runeDisp);
+}
+function calcBuff(speed, artiPct) {
+  return Math.ceil(speed * (1 + 0.30 * (1 + artiPct/100)));
 }
 
-// ─── RENDER ───────────────────────────────────────
-function renderResults(res, mons) {
-  let html = `<table><thead><tr>
-    <th>순서</th><th>몬스터</th><th>기본속</th>
-    <th>필요 뒷속</th><th>최종 합속</th>
-  </tr></thead><tbody>`;
+// Render monster cards
+const tgtOpts = (includeAll) =>
+  `<option value="none">없음</option>` +
+  (includeAll ? `<option value="all">아군전체</option>` : '') +
+  `<option value="0">몬1</option><option value="1">몬2</option><option value="2">몬3</option>`;
 
-  res.forEach((r,i)=>{
-    html+=`<tr>
-      <td style="color:var(--sub)">${r.order||i+1}</td>
-      <td style="font-weight:600;color:${CO[i]}">${r.name}</td>
-      <td class="c-sub">${r.base}</td>
-      <td class="c-req ${CC[i]}">${r.rune}</td>
-      <td>${r.final}</td>
+function renderMonsters() {
+  const presetOpts = Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
+  const defaults = [
+    { name:'빛하피', base:101, rune:218, swift:true, arti:0, gAmt:30, gTgt:'all', sTgt:'none' },
+    { name:'물가루다', base:91,  rune:176, swift:false, arti:0, gAmt:100, gTgt:'2', sTgt:'none' },
+    { name:'풍조커',  base:103, rune:0,   swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none' },
+  ];
+  document.getElementById('monsters').innerHTML = defaults.map((d,i) => `
+  <div class="monster-block">
+    <h3>몬스터 ${i+1}</h3>
+    <div class="m-row">
+      <span class="m-lbl">프리셋</span>
+      <select onchange="applyPreset(${i},this.value)">${presetOpts}</select>
+    </div>
+    <div class="m-row">
+      <span class="m-lbl">이름</span>
+      <input type="text" id="nm-${i}" value="${d.name}" style="width:110px">
+    </div>
+    <div class="m-row">
+      <span class="m-lbl">기본공속</span>
+      <input type="number" id="bs-${i}" value="${d.base}" min="1">
+    </div>
+    <div class="m-row">
+      <span class="m-lbl">뒷속 (표기)</span>
+      <input type="number" id="rn-${i}" value="${d.rune}" min="0">
+    </div>
+    <div class="m-row">
+      <span class="m-lbl">신속 세트</span>
+      <input type="checkbox" id="sw-${i}" ${d.swift?'checked':''}>
+    </div>
+    <div class="m-row">
+      <span class="m-lbl">아티 속버프%</span>
+      <input type="number" id="at-${i}" value="${d.arti}" min="0" max="100"> %
+      <span style="font-size:.72rem;color:var(--sub)">(0이면 기본 30%)</span>
+    </div>
+    <div class="skill-box">
+      <div class="skill-title">스킬 효과 (이 몬스터 턴 시)</div>
+      <div class="skill-row">
+        <span style="color:var(--sub)">게이지</span>
+        <input type="number" id="ga-${i}" value="${d.gAmt}" min="0" max="100" placeholder="%"> %
+        <span style="color:var(--sub)">→</span>
+        <select id="gt-${i}">${tgtOpts(true)}</select>
+      </div>
+      <div class="skill-row">
+        <span style="color:var(--sub)">속버프</span>
+        <span style="color:var(--sub)">→</span>
+        <select id="st-${i}">${tgtOpts(true)}</select>
+      </div>
+    </div>
+  </div>`).join('');
+
+  // Set default select values
+  defaults.forEach((d,i) => {
+    document.querySelector(`#monsters .monster-block:nth-child(${i+1}) select`).value = '직접 입력';
+    setSelectVal(`gt-${i}`, d.gTgt);
+    setSelectVal(`st-${i}`, d.sTgt);
+  });
+}
+
+function setSelectVal(id, val) {
+  const el = document.getElementById(id);
+  if (el) for (let o of el.options) if (o.value === val) { o.selected = true; break; }
+}
+
+function applyPreset(idx, name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  document.getElementById(`nm-${idx}`).value = name;
+  document.getElementById(`bs-${idx}`).value = p.base;
+  if (p.skills && p.skills[0]) {
+    document.getElementById(`ga-${idx}`).value = p.skills[0].gaugeAmt;
+    setSelectVal(`gt-${idx}`, p.skills[0].gaugeTgt);
+    setSelectVal(`st-${idx}`, p.skills[0].speedTgt);
+  }
+}
+
+// Get monster data
+function getMonsters() {
+  const ldr = +document.getElementById('leader').value || 0;
+  const tot = +document.getElementById('totem').value || 0;
+  return [0,1,2].map(i => {
+    const base  = +document.getElementById(`bs-${i}`).value || 0;
+    const rune  = +document.getElementById(`rn-${i}`).value || 0;
+    const swift = document.getElementById(`sw-${i}`).checked;
+    const arti  = +document.getElementById(`at-${i}`).value || 0;
+    const name  = document.getElementById(`nm-${i}`).value || `몬${i+1}`;
+    const gAmt  = +document.getElementById(`ga-${i}`).value || 0;
+    const gTgt  = document.getElementById(`gt-${i}`).value;
+    const sTgt  = document.getElementById(`st-${i}`).value;
+    const speed = calcSpeed(base, rune, swift, ldr, tot);
+    const speedBuff = calcBuff(speed, arti);
+    return { idx:i, name, base, rune, swift, arti, speed, speedBuff, gAmt, gTgt, sTgt, isAlly:true };
+  });
+}
+
+function getEnemySpeed() {
+  if (eMode === 'direct') return +document.getElementById('e-spd').value || 0;
+  const base  = +document.getElementById('e-base').value || 0;
+  const rune  = +document.getElementById('e-rune').value || 0;
+  const swift = document.getElementById('e-swift').checked;
+  const ldr   = +document.getElementById('leader').value || 0;
+  const tot   = +document.getElementById('totem').value || 0;
+  return calcSpeed(base, rune, swift, ldr, tot);
+}
+
+// Simulation: one turn per tick model
+function simulate(allies, enemySpd, tickRate, maxTicks) {
+  const entities = [
+    ...allies.map(m => ({ ...m, curSpd: m.speed, hasBuff: false })),
+    { idx: allies.length, name: '상대 선턴잡이', isAlly: false, speed: enemySpd, curSpd: enemySpd, speedBuff: enemySpd, hasBuff: false, gAmt: 0, gTgt: 'none', sTgt: 'none' }
+  ];
+  let gauges = entities.map(() => 0);
+  const events = [];
+
+  for (let tick = 1; tick <= maxTicks; tick++) {
+    for (let i = 0; i < entities.length; i++) gauges[i] += entities[i].curSpd * tickRate;
+
+    // Find one entity: highest gauge ≥ 100, ties → ally first
+    let best = -1, bestG = 99.9999;
+    for (let i = 0; i < entities.length; i++) {
+      if (gauges[i] < 100) continue;
+      if (gauges[i] > bestG + 1e-6 ||
+          (Math.abs(gauges[i] - bestG) < 1e-6 && entities[i].isAlly && (best < 0 || !entities[best].isAlly))) {
+        best = i; bestG = gauges[i];
+      }
+    }
+    if (best < 0) continue;
+
+    const e = entities[best];
+    gauges[best] -= 100;
+    const effects = [];
+
+    if (e.isAlly) {
+      // Gauge buff
+      if (e.gAmt > 0 && e.gTgt !== 'none') {
+        const tgts = resolveTgts(e.gTgt, entities, best, true);
+        tgts.forEach(j => { gauges[j] += e.gAmt; effects.push(`${entities[j].name} +${e.gAmt}%`); });
+      }
+      // Speed buff
+      if (e.sTgt !== 'none') {
+        const tgts = resolveTgts(e.sTgt, entities, best, true);
+        tgts.forEach(j => {
+          if (!entities[j].hasBuff) {
+            entities[j].hasBuff = true;
+            entities[j].curSpd = entities[j].speedBuff;
+            effects.push(`${entities[j].name} 속버프(${entities[j].speedBuff})`);
+          }
+        });
+      }
+    }
+
+    events.push({ tick, entity: e, gaugeAfter: gauges[best], gaugesSnap: [...gauges], effects });
+  }
+  return events;
+}
+
+function resolveTgts(tgt, entities, selfIdx, alliesOnly) {
+  if (tgt === 'all') return entities.map((_,i)=>i).filter(i => i !== selfIdx && (!alliesOnly || entities[i].isAlly));
+  const n = parseInt(tgt);
+  return (!isNaN(n) && n < 3 && n !== selfIdx) ? [n] : [];
+}
+
+// Min 뒷속 analysis
+// Formula: ally_speed × tickRate × T + totalBonus > enemy_speed × tickRate × T
+// => ally_speed > enemy_speed - totalBonus / (tickRate × T)
+// Also need ally_speed × tickRate × T + totalBonus > 100 (to actually reach 100%)
+function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, tot) {
+  const tr = tickRate;
+  const needFromGauge = (enemySpd * tr * targetTick - totalBonus) / (tr * targetTick);
+  const needFor100 = (100 - totalBonus) / (tr * targetTick);
+  const needSpeed = Math.max(needFromGauge, needFor100);
+  if (needSpeed <= 0) return { minSpeed: 0, minRune: 0, possible: true, free: true };
+
+  const mult = 1 + ldr/100 + tot/100;
+  const swRaw = ally.swift ? ally.base * 0.25 : 0;
+  const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
+  // speed = ceil(base*mult + runeDisp - swCeil + swRaw)
+  //       = ceil(base*mult + swRaw - swCeil + runeDisp)
+  const baseContrib = ally.base * mult + swRaw - swCeil;
+  // ceil(baseContrib + runeDisp) > needSpeed
+  // baseContrib + runeDisp >= needSpeed (since ceil, borderline case)
+  const minRuneRaw = needSpeed - baseContrib;
+  const minRune = Math.max(0, Math.ceil(minRuneRaw));
+  const achievedSpeed = calcSpeed(ally.base, minRune, ally.swift, ldr, tot);
+
+  return { minSpeed: Math.ceil(needSpeed), minRune, achievedSpeed };
+}
+
+function calculate() {
+  const allies = getMonsters();
+  const enemySpd = getEnemySpeed();
+  const ldr = +document.getElementById('leader').value || 0;
+  const tot = +document.getElementById('totem').value || 0;
+  const tr = TICK_RATE[mode];
+
+  document.getElementById('results').classList.remove('hidden');
+
+  // ★ 필요 최저 뒷속 요약
+  calcMinRuneSummary(allies, tr, ldr, tot);
+
+  // Stat table
+  const sb = document.getElementById('stat-body');
+  sb.innerHTML = `<tr>
+    <td><span class="tag tg-enemy">상대</span> 선턴잡이</td>
+    <td class="val">${enemySpd}</td>
+    <td>${(enemySpd*tr).toFixed(2)}%</td>
+    <td>${Math.ceil(100/(enemySpd*tr))}틱</td>
+    <td>-</td>
+  </tr>` + allies.map(m => `<tr>
+    <td><span class="tag tg-ally">아군</span> ${m.name}</td>
+    <td class="val">${m.speed}</td>
+    <td>${(m.speed*tr).toFixed(2)}%</td>
+    <td>${Math.ceil(100/(m.speed*tr))}틱</td>
+    <td class="val">${m.speedBuff}</td>
+  </tr>`).join('');
+
+  // Simulate
+  const events = simulate(allies, enemySpd, tr, 30);
+
+  // Timeline
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+  events.forEach(ev => {
+    const div = document.createElement('div');
+    div.className = 't-row';
+    const effHtml = ev.effects.length ? `<span class="t-eff"> → ${ev.effects.join(', ')}</span>` : '';
+    div.innerHTML = `
+      <span class="t-tick">${ev.tick}틱</span>
+      <div class="t-ev ${ev.entity.isAlly?'ally':'enemy'}">
+        <span style="font-weight:600;color:${ev.entity.isAlly?'var(--green)':'var(--red)'}">${ev.entity.name}</span>
+        <span class="t-g">(잔여 ${ev.gaugeAfter.toFixed(1)}%)</span>
+        ${effHtml}
+      </div>`;
+    tl.appendChild(div);
+  });
+
+  // Analysis
+  const an = document.getElementById('analysis');
+  an.innerHTML = '';
+
+  // Find when each ally's gauge-giver takes their turn
+  const allyTurnTicks = {};
+  events.forEach(ev => {
+    if (ev.entity.isAlly && !(ev.entity.name in allyTurnTicks)) {
+      allyTurnTicks[ev.entity.name] = ev.tick;
+    }
+  });
+
+  allies.forEach(ally => {
+    // Compute cumulative gauge bonus ally receives from others
+    const getBonusAt = (targetTick) => {
+      let bonus = 0;
+      allies.forEach(other => {
+        if (other.idx === ally.idx) return;
+        const tgtMatch = other.gTgt === 'all' || parseInt(other.gTgt) === ally.idx;
+        if (tgtMatch && other.gAmt > 0) {
+          const giverTick = allyTurnTicks[other.name];
+          if (giverTick && giverTick < targetTick) bonus += other.gAmt;
+        }
+      });
+      return bonus;
+    };
+
+    const div = document.createElement('div');
+    div.className = 'an-block';
+
+    const enemyFirstTick = Math.ceil(100 / (enemySpd * tr));
+    // Try ticks 1 through 10 for 중턴
+    let rows = '';
+    for (let T = 1; T <= 10; T++) {
+      const bonus = getBonusAt(T);
+      const res = minRuneAnalysis(ally, bonus, enemySpd, T, tr, ldr, tot);
+      if (res.free) {
+        rows += `<div class="an-row">
+          <span>${T}틱 중턴</span>
+          <span style="color:var(--sub)">보너스 +${bonus}%</span>
+          <span class="val">뒷속 무관</span>
+          <span class="tag tg-ok">✓ 달성</span>
+        </div>`;
+      } else {
+        const ok = ally.speed >= res.minSpeed;
+        rows += `<div class="an-row">
+          <span>${T}틱 중턴</span>
+          <span style="color:var(--sub)">보너스 +${bonus}%</span>
+          <span>필요 합속 <span class="val">${res.minSpeed}</span> / 뒷속 <span class="val">${res.minRune}</span></span>
+          ${ok ? `<span class="tag tg-ok">✓ 현재 ${ally.speed} 충족</span>` : `<span class="tag tg-fail">✗ 현재 ${ally.speed} 부족</span>`}
+        </div>`;
+      }
+    }
+
+    div.innerHTML = `<div class="an-name">${ally.name}</div>${rows}`;
+    an.appendChild(div);
+  });
+}
+
+// ── 필요 최저 뒷속 요약 ──────────────────────────────
+function calcMinRuneSummary(allies, tickRate, ldr, tot) {
+  // 가장 빠른 몬스터(합속 최대)를 선턴잡이로 간주
+  const sorted = [...allies].sort((a,b) => b.speed - a.speed);
+  const lead   = sorted[0];
+  const others = sorted.slice(1);
+  const TR     = tickRate;
+
+  // 선턴잡이 첫 턴 틱
+  const T1 = Math.floor(100 / (lead.speed * TR)) + 1;
+
+  const rows = others.map((ally, idx) => {
+    const Ti = T1 + idx + 1; // 중턴 목표 틱
+
+    // 이 몬스터가 받는 게이지 보너스 (다른 아군 스킬에서)
+    const bonus = allies.reduce((sum, other) => {
+      if(other.idx === ally.idx) return sum;
+      const tgtMatch = other.gTgt === 'all' || parseInt(other.gTgt) === ally.idx;
+      if(tgtMatch && other.gAmt > 0) {
+        // 해당 스킬 발동자의 첫 턴이 Ti 이전이면 보너스 적용
+        const giverSpeed = other.speed;
+        const giverT     = Math.floor(100 / (giverSpeed * TR)) + 1;
+        if(giverT < Ti) return sum + other.gAmt;
+      }
+      return sum;
+    }, 0);
+
+    // 속버프 여부 확인
+    const getsSpeedBuff = allies.some(other => {
+      if(other.idx === ally.idx) return false;
+      return other.sTgt === 'all' || parseInt(other.sTgt) === ally.idx;
+    });
+    const buffMul = getsSpeedBuff ? calcBuff(ally.speed, ally.arti) / ally.speed : 1;
+
+    let minSpeed;
+    if(getsSpeedBuff && buffMul > 1) {
+      // 속버프 받는 경우: 선턴잡이 T1틱 이후 버프 적용
+      const Tj = T1; // 버프 받는 시점(선턴잡이 turn)
+      minSpeed = Math.ceil(lead.speed * Ti / (Tj + buffMul * (Ti - Tj))) + 1;
+    } else {
+      // 게이지 보너스만
+      minSpeed = Math.ceil(lead.speed - bonus / (TR * Ti)) + 1;
+    }
+
+    const mult = 1 + ldr/100 + tot/100;
+    const swRaw  = ally.swift ? ally.base * 0.25 : 0;
+    const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
+    const baseContrib = Math.ceil(ally.base * mult + swRaw - swCeil);
+    const minRune = Math.max(0, minSpeed - baseContrib);
+    const ok = ally.rune >= minRune;
+
+    return { name: ally.name, Ti, bonus, minSpeed, minRune, curRune: ally.rune, ok };
+  });
+
+  // 렌더
+  const div = document.getElementById('min-rune-summary');
+  if(rows.length === 0) { div.innerHTML = '<p style="color:var(--sub);font-size:0.83rem">아군 몬스터가 2마리 이상 필요합니다.</p>'; return; }
+
+  let html = `<table class="min-rune-table">
+    <thead><tr>
+      <th>몬스터</th>
+      <th>목표 틱</th>
+      <th>게이지 보너스</th>
+      <th>필요 최저 뒷속</th>
+      <th>현재 상태</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const status = r.ok
+      ? `<span class="min-rune-ok">✓ 현재 ${r.curRune} 충족</span>`
+      : `<span class="min-rune-fail">✗ 현재 ${r.curRune} / ${r.minRune - r.curRune} 부족</span>`;
+    html += `<tr>
+      <td style="font-weight:600">${r.name}</td>
+      <td style="color:var(--sub)">${r.Ti}틱</td>
+      <td style="color:var(--sub)">${r.bonus > 0 ? '+'+r.bonus+'%' : '-'}</td>
+      <td><span class="min-rune-val">${r.minRune}</span></td>
+      <td>${status}</td>
     </tr>`;
   });
-  html+=`</tbody></table>`;
 
-  // Buff flow
-  const buffs = mons.filter(m=>m.skill).map(m=>{
-    const tgt = mons[m.skill.target];
-    const typeStr = m.skill.type==='gauge'
-      ? `게이지 +${m.skill.amount}%`
-      : '속도 버프';
-    return `<div class="bf-row">
-      <span style="font-weight:600;color:var(--accent)">${m.name}</span>
-      <span style="color:var(--sub)">→</span>
-      <span style="font-weight:600;color:var(--green)">${tgt?.name||'?'}</span>
-      <span class="badge ${m.skill.type==='gauge'?'b-gauge':'b-speed'}">${typeStr}</span>
-    </div>`;
-  }).join('');
-
-  if(buffs) html+=`<div class="buff-flow"><div class="bf-title">스킬 연계</div>${buffs}</div>`;
-
-  html+=`<p class="notice">※ 실제 사용 전 연계 테스트 후 사용하세요. 필요 뒷속은 1~2 차이날 수 있습니다.</p>`;
-
-  document.getElementById('result').innerHTML = html;
+  html += `</tbody></table>
+    <p class="min-rune-note">
+      📌 기준: <strong>${lead.name}</strong> (합속 ${lead.speed}) 기준으로 계산.
+      ${lead.name}이 선턴(${T1}틱)을 잡은 후 각 몬스터가 차례로 중턴/후턴을 먹기 위한 최소 뒷속입니다.
+    </p>`;
+  div.innerHTML = html;
 }
+
+// Init
+renderMonsters();
 </script>
 </body>
 </html>

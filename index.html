@@ -569,6 +569,25 @@ function calculate() {
     div.innerHTML = `<div class="an-name">${ally.name}</div>${rows}`;
     an.appendChild(div);
   });
+
+  // DB 저장
+  const minRunes = allies.map(ally => {
+    const res = minRuneAnalysis(ally, 0, enemySpd, 1, tr, ldr, tot);
+    return { name: ally.name, minRune: res.free ? 0 : res.minRune };
+  });
+
+  fetch('/api/records', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode,
+      leader_pct: ldr,
+      totem_pct: tot,
+      enemy_speed: enemySpd,
+      monsters: allies.map(({ name, base, rune, swift, arti, speed }) => ({ name, base, rune, swift, arti, speed })),
+      min_runes: minRunes,
+    }),
+  }).catch(() => {});
 }
 
 // ── 필요 최저 뒷속 요약 ──────────────────────────────

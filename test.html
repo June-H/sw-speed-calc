@@ -746,19 +746,14 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot) {
       <th>목표 틱</th>
       <th>게이지 보너스</th>
       <th>필요 최저 뒷속</th>
-      <th>현재 상태</th>
     </tr></thead><tbody>`;
 
   rows.forEach(r => {
-    const status = r.ok
-      ? `<span class="min-rune-ok">✓ 현재 ${r.curRune} 충족</span>`
-      : `<span class="min-rune-fail">✗ 현재 ${r.curRune} / ${r.minRune - r.curRune} 부족</span>`;
     html += `<tr>
       <td style="font-weight:600">${r.name}</td>
       <td style="color:var(--sub)">${r.Ti}틱</td>
       <td style="color:var(--sub)">${r.bonus > 0 ? '+'+r.bonus+'%' : '-'}</td>
       <td><span class="min-rune-val">${r.minRune}</span></td>
-      <td>${status}</td>
     </tr>`;
   });
 

@@ -942,17 +942,10 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
     });
     const buffMul = getsSpeedBuff ? calcBuff(ally.speed, ally.arti) / ally.speed : 1;
 
-    // 필요 공속 역산
-    // 목표: ally.speed × TR × Ti + bonus ≥ lead.speed × TR × T1 (선턴보다 늦지 않아야 함)
-    let minSpeed;
-    if(getsSpeedBuff && buffMul > 1) {
-      // 속버프가 T1에서 적용됨
-      const numerator = lead.speed * T1 - bonus / TR;
-      const denominator = buffMul * estimatedTi;
-      minSpeed = Math.ceil(numerator / denominator) + 1;
-    } else {
-      minSpeed = Math.ceil(lead.speed - bonus / (TR * estimatedTi)) + 1;
-    }
+    // 필요 공속 역산 (calculate() 함수와 동일한 로직)
+    // 적군 선턴보다 먼저 턴을 잡아야 함: ally.speed × TR × Ti + bonus ≥ enemySpd × TR × Ti
+    // => ally.speed ≥ enemySpd - bonus / (TR × Ti)
+    const minSpeed = Math.ceil(enemySpd - bonus / (TR * estimatedTi));
 
     const mult = 1 + ldr/100 + tot/100;
     const swRaw  = ally.swift ? ally.base * 0.25 : 0;

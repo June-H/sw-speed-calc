@@ -170,19 +170,6 @@ tr:last-child td { border-bottom: none; }
   </div>
 
   <button class="calc-btn" onclick="calculate()">📊 계산하기</button>
-
-  <!-- 기록 저장 -->
-  <div class="card" style="margin-top:12px">
-    <div class="card-title">💾 기록 저장</div>
-    <div class="row">
-      <span class="lbl">메모 (선택)</span>
-      <input type="text" id="save-label" placeholder="예: 빛하피덱 최적화" style="flex:1;width:auto">
-    </div>
-    <button onclick="saveRecord()" style="width:100%;padding:9px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;opacity:0.9" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.9">
-      💾 현재 설정 저장
-    </button>
-    <div id="save-msg" style="margin-top:8px;font-size:0.78rem;display:none"></div>
-  </div>
 </div>
 
 <!-- RIGHT: RESULTS -->
@@ -211,22 +198,11 @@ tr:last-child td { border-bottom: none; }
     <div id="analysis"></div>
   </div>
 </div>
-
-<!-- 기록 조회 (항상 표시) -->
-<div style="max-width:1300px;margin:12px auto 0">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="card-title" style="margin-bottom:0">📋 저장된 기록</div>
-      <button onclick="loadRecords()" style="background:var(--card2);border:1px solid var(--border);color:var(--sub);padding:4px 12px;border-radius:6px;font-size:0.78rem;cursor:pointer">🔄 새로고침</button>
-    </div>
-    <div id="records-area" style="color:var(--sub);font-size:0.83rem;text-align:center;padding:16px">불러오는 중...</div>
-  </div>
-</div>
 </div>
 
 <script>
-const TICK_RATE = { arena: 0.07, siege: 0.015 };
-let mode = 'arena';
+const TICK_RATE = { siege: 0.07, arena: 0.015 };
+let mode = 'siege';
 let eMode = 'direct';
 
 const PRESETS = {
@@ -593,6 +569,19 @@ function calculate() {
     div.innerHTML = `<div class="an-name">${ally.name}</div>${rows}`;
     an.appendChild(div);
   });
+
+  // DB 저장
+  fetch('/api/records', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode,
+      leader_pct: ldr,
+      totem_pct: tot,
+      enemy_speed: enemySpd,
+      monsters: allies.map(({ name, base, rune, swift, arti, speed }) => ({ name, base, rune, swift, arti, speed })),
+    }),
+  }).catch(() => {});
 }
 
 // ── 필요 최저 뒷속 요약 ──────────────────────────────
@@ -682,118 +671,6 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot) {
     </p>`;
   div.innerHTML = html;
 }
-
-// ─── DB 저장/조회 ────────────────────────────────────────────
-
-async function saveRecord() {
-  const allies  = getMonsters();
-  const enemySpd = getEnemySpeed();
-  const ldr = +document.getElementById('leader').value || 0;
-  const tot = +document.getElementById('totem').value  || 0;
-  const label = document.getElementById('save-label').value.trim() || '기록';
-  const msg = document.getElementById('save-msg');
-
-  // 최소 뒷속 요약 계산
-  const tr = TICK_RATE[mode];
-  const sorted = [...allies].sort((a,b) => b.speed - a.speed);
-  const lead = sorted[0];
-  const minRunes = {};
-  sorted.slice(1).forEach((ally, idx) => {
-    const Ti = Math.floor(100/(lead.speed*tr))+1 + idx + 1;
-    const prev = sorted[idx];
-    const G = prev.gAmt || 0;
-    const minSpd = Math.ceil(lead.speed - G/(tr*Ti)) + 1;
-    const mult = 1+ldr/100+tot/100;
-    const swRaw = ally.swift ? ally.base*0.25 : 0;
-    const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
-    const baseC = Math.ceil(ally.base*mult+swRaw-swCeil);
-    minRunes[ally.name] = Math.max(0, minSpd - baseC);
-  });
-
-  const payload = {
-    label,
-    mode,
-    leader_pct: ldr,
-    totem_pct: tot,
-    enemy_speed: enemySpd,
-    monsters: allies.map(m => ({
-      name: m.name, base: m.base, rune: m.rune,
-      swift: m.swift, arti: m.arti,
-      speed: m.speed, gAmt: m.gAmt, gTgt: m.gTgt, sTgt: m.sTgt
-    })),
-    min_runes: minRunes,
-    notes: ''
-  };
-
-  try {
-    const res = await fetch('/api/records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    msg.style.display = 'block';
-    msg.style.color = 'var(--green)';
-    msg.textContent = `✓ 저장 완료 (ID: ${data.id})`;
-    document.getElementById('save-label').value = '';
-    loadRecords();
-  } catch(e) {
-    msg.style.display = 'block';
-    msg.style.color = 'var(--red)';
-    msg.textContent = '✗ 저장 실패: ' + e.message;
-  }
-  setTimeout(() => { msg.style.display = 'none'; }, 3000);
-}
-
-async function loadRecords() {
-  const area = document.getElementById('records-area');
-  try {
-    const res = await fetch('/api/records');
-    const rows = await res.json();
-
-    if (!rows.length) {
-      area.innerHTML = '<span style="color:var(--sub)">저장된 기록이 없습니다.</span>';
-      return;
-    }
-
-    area.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.8rem">
-      <thead><tr style="background:var(--card2)">
-        <th style="padding:7px 10px;text-align:left;color:var(--sub);border-bottom:1px solid var(--border)">시간</th>
-        <th style="padding:7px 10px;text-align:left;color:var(--sub);border-bottom:1px solid var(--border)">메모</th>
-        <th style="padding:7px 10px;text-align:left;color:var(--sub);border-bottom:1px solid var(--border)">몬스터</th>
-        <th style="padding:7px 10px;text-align:left;color:var(--sub);border-bottom:1px solid var(--border)">상대 합속</th>
-        <th style="padding:7px 10px;text-align:left;color:var(--sub);border-bottom:1px solid var(--border)">최소 뒷속</th>
-        <th style="padding:7px 10px;border-bottom:1px solid var(--border)"></th>
-      </tr></thead><tbody>` +
-      rows.map(r => {
-        const mons = (r.monsters||[]).map(m => `${m.name}(${m.rune})`).join(' / ');
-        const minR = r.min_runes ? Object.entries(r.min_runes).map(([k,v])=>`${k}:${v}`).join(', ') : '-';
-        const t = new Date(r.created_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-        return `<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 10px;color:var(--sub);white-space:nowrap">${t}</td>
-          <td style="padding:7px 10px;font-weight:600">${r.label||'-'}</td>
-          <td style="padding:7px 10px;color:var(--sub)">${mons}</td>
-          <td style="padding:7px 10px;color:var(--accent2)">${r.enemy_speed}</td>
-          <td style="padding:7px 10px;color:var(--green);font-size:0.75rem">${minR}</td>
-          <td style="padding:7px 10px;text-align:right">
-            <button onclick="deleteRecord(${r.id})" style="background:none;border:1px solid var(--border);color:var(--sub);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.72rem">삭제</button>
-          </td>
-        </tr>`;
-      }).join('') +
-      '</tbody></table>';
-  } catch(e) {
-    area.innerHTML = `<span style="color:var(--red)">불러오기 실패: ${e.message}</span>`;
-  }
-}
-
-async function deleteRecord(id) {
-  if(!confirm('삭제하시겠습니까?')) return;
-  await fetch(`/api/records/${id}`, { method: 'DELETE' });
-  loadRecords();
-}
-
-// 페이지 로드 시 기록 불러오기
-window.addEventListener('load', loadRecords);
 
 // Init
 renderMonsters();

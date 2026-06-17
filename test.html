@@ -259,7 +259,8 @@ const PRESETS = {
     name: '물호박',
     base: 101,
     skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all' },
-    notes: '전체 속버프 부여, 의보로 추가되는 공속 따로 입력하지 말고 뒷속만 입력'
+    notes: '전체 속버프 부여, 의보로 추가되는 공속 따로 입력하지 말고 뒷속만 입력',
+    extraSpeedBonus: 39.5
   },
   '물헬하': {
     name: '물헬하',
@@ -483,7 +484,20 @@ function getMonsters() {
     const gTgt  = document.getElementById(`gt-${i}`).value;
     const sTgt  = document.getElementById(`st-${i}`).value;
     const turn  = turns[i];
-    const speed = calcSpeed(base, rune, swift, ldr, tot);
+    let speed = calcSpeed(base, rune, swift, ldr, tot);
+
+    // 특정 몬스터에 대한 예외 규칙 적용 (예: 물호박 의보 공속)
+    const presetName = Object.keys(PRESETS).find(k => {
+      const p = PRESETS[k];
+      return p && p.name === name;
+    });
+    if (presetName) {
+      const preset = PRESETS[presetName];
+      if (preset.extraSpeedBonus) {
+        speed += preset.extraSpeedBonus;
+      }
+    }
+
     const speedBuff = calcBuff(speed, arti);
     return { idx:i, name, base, rune, swift, arti, speed, speedBuff, gAmt, gTgt, sTgt, turn, isAlly:true };
   });

@@ -896,8 +896,8 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot) {
   const others = sortedByTurn.slice(1);
   const TR     = tickRate;
 
-  // 선턴잡이 첫 턴 틱
-  const T1 = Math.floor(100 / (lead.speed * TR)) + 1;
+  // 선턴잡이 첫 턴 틱 (calculate()와 동일한 방식)
+  const T1 = Math.ceil(100 / (lead.speed * TR));
 
   const rows = others.map((ally, idx) => {
     const Ti = T1 + idx + 1; // 중턴 목표 틱
@@ -909,7 +909,7 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot) {
       if(tgtMatch && other.gAmt > 0) {
         // 해당 스킬 발동자의 첫 턴이 Ti 이전이면 보너스 적용
         const giverSpeed = other.speed;
-        const giverT     = Math.floor(100 / (giverSpeed * TR)) + 1;
+        const giverT     = Math.ceil(100 / (giverSpeed * TR));
         if(giverT < Ti) return sum + other.gAmt;
       }
       return sum;

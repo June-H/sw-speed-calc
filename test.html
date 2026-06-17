@@ -778,7 +778,7 @@ function calculate() {
   document.getElementById('results').classList.remove('hidden');
 
   // ★ 필요 최저 뒷속 요약
-  calcMinRuneSummary(allies, tr, ldr, tot);
+  calcMinRuneSummary(allies, tr, ldr, tot, enemySpd);
 
   // Stat table
   const sb = document.getElementById('stat-body');
@@ -889,53 +889,69 @@ function calculate() {
 }
 
 // ── 필요 최저 뒷속 요약 ──────────────────────────────
-function calcMinRuneSummary(allies, tickRate, ldr, tot) {
-  // 턴 순서대로 정렬 (사용자가 설정한 turn 순서 존중)
+function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
+  // 턴 순서대로 정렬
   const sortedByTurn = [...allies].sort((a,b) => a.turn - b.turn);
-  const lead   = sortedByTurn[0];
+  const lead = sortedByTurn[0];
   const others = sortedByTurn.slice(1);
-  const TR     = tickRate;
+  const TR = tickRate;
 
-  // 선턴잡이 첫 턴 틱 (calculate()와 동일한 방식)
-  const T1 = Math.ceil(100 / (lead.speed * TR));
+  if(others.length === 0) {
+    document.getElementById('min-rune-summary').innerHTML = '<p style="color:var(--sub);font-size:0.83rem">아군 몬스터가 2마리 이상 필요합니다.</p>';
+    return;
+  }
 
+  // 현재 설정으로 시뮬 실행해서 각 아군의 첫 턴 틱 파악
+  const simEvents = simulate(allies, enemySpd, TR, 100);
+  const allyFirstTurns = {};
+  simEvents.forEach(ev => {
+    if (ev.entity.isAlly && !(ev.entity.name in allyFirstTurns)) {
+      allyFirstTurns[ev.entity.name] = ev.tick;
+    }
+  });
+
+  const T1 = allyFirstTurns[lead.name] || Math.ceil(100 / (lead.speed * TR));
+
+  // 각 2~3순위 몬스터에 대해 필요 공속 계산
   const rows = others.map((ally, idx) => {
-    const Ti = T1 + idx + 1; // 중턴 목표 틱
+    const targetTurnOrder = ally.turn; // 사용자가 설정한 턴 순서
 
-    // 이 몬스터가 받는 게이지 보너스 (다른 아군 스킬에서)
+    // 목표: 이 몬스터가 정확히 targetTurnOrder번째 턴을 잡아야 함
+    // 다른 선턴 개수 계산: 이 몬스터보다 turn이 작은 아군 개수
+    const priorTurns = allies.filter(m => m.turn < targetTurnOrder).length;
+
+    // 추정 목표 틱: lead의 turn이 T1이면, priorTurns번째 몬스터는 대략 T1 + priorTurns틱
+    // (실제로는 게이지 보너스와 속버프에 따라 다르지만, 역산의 시작점)
+    const estimatedTi = T1 + priorTurns;
+
+    // 이 몬스터가 받는 게이지 보너스
     const bonus = allies.reduce((sum, other) => {
       if(other.idx === ally.idx) return sum;
       const tgtMatch = other.gTgt === 'all' || parseInt(other.gTgt) === ally.idx;
       if(tgtMatch && other.gAmt > 0) {
-        // 해당 스킬 발동자의 첫 턴이 Ti 이전이면 보너스 적용
-        const giverSpeed = other.speed;
-        const giverT     = Math.ceil(100 / (giverSpeed * TR));
-        if(giverT < Ti) return sum + other.gAmt;
+        const otherFirstTurn = allyFirstTurns[other.name] || Math.ceil(100 / (other.speed * TR));
+        if(otherFirstTurn < estimatedTi) return sum + other.gAmt;
       }
       return sum;
     }, 0);
 
-    // 속버프 여부 확인
+    // 속버프 여부
     const getsSpeedBuff = allies.some(other => {
       if(other.idx === ally.idx) return false;
       return other.sTgt === 'all' || parseInt(other.sTgt) === ally.idx;
     });
     const buffMul = getsSpeedBuff ? calcBuff(ally.speed, ally.arti) / ally.speed : 1;
 
+    // 필요 공속 역산
+    // 목표: ally.speed × TR × Ti + bonus ≥ lead.speed × TR × T1 (선턴보다 늦지 않아야 함)
     let minSpeed;
     if(getsSpeedBuff && buffMul > 1) {
-      // 속버프 받으면서 게이지 보너스도 함께 적용되는 경우
-      // speedBuff × TR × Ti + bonus ≥ lead.speed × TR × T1
-      // speedBuff ≥ (lead.speed × T1 - bonus/TR) / Ti
-      // ally.speed × buffMul ≥ (lead.speed × T1 - bonus/TR) / Ti
-      // ally.speed ≥ (lead.speed × T1 - bonus/TR) / (buffMul × Ti)
-      const Tj = T1; // 버프 받는 시점(선턴잡이 turn)
-      const numerator = lead.speed * Tj - bonus / TR;
-      const denominator = buffMul * Ti;
+      // 속버프가 T1에서 적용됨
+      const numerator = lead.speed * T1 - bonus / TR;
+      const denominator = buffMul * estimatedTi;
       minSpeed = Math.ceil(numerator / denominator) + 1;
     } else {
-      // 게이지 보너스만 (속버프 없음)
-      minSpeed = Math.ceil(lead.speed - bonus / (TR * Ti)) + 1;
+      minSpeed = Math.ceil(lead.speed - bonus / (TR * estimatedTi)) + 1;
     }
 
     const mult = 1 + ldr/100 + tot/100;
@@ -943,15 +959,12 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot) {
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
     const baseContrib = Math.ceil(ally.base * mult + swRaw - swCeil);
     const minRune = Math.max(0, minSpeed - baseContrib);
-    const ok = ally.rune >= minRune;
 
-    return { name: ally.name, Ti, bonus, minSpeed, minRune, curRune: ally.rune, ok };
+    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune };
   });
 
   // 렌더
   const div = document.getElementById('min-rune-summary');
-  if(rows.length === 0) { div.innerHTML = '<p style="color:var(--sub);font-size:0.83rem">아군 몬스터가 2마리 이상 필요합니다.</p>'; return; }
-
   let html = `<table class="min-rune-table">
     <thead><tr>
       <th>몬스터</th>
@@ -971,8 +984,8 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot) {
 
   html += `</tbody></table>
     <p class="min-rune-note">
-      📌 기준: <strong>${lead.name}</strong> (합속 ${lead.speed}) 기준으로 계산.
-      ${lead.name}이 선턴(${T1}틱)을 잡은 후 각 몬스터가 차례로 중턴/후턴을 먹기 위한 최소 뒷속입니다.
+      📌 기준: <strong>${lead.name}</strong> (${T1}틱) 기준으로 계산.
+      각 몬스터가 설정한 턴 순서대로 턴을 잡기 위한 최소 뒷속입니다.
     </p>`;
   div.innerHTML = html;
 }

@@ -385,7 +385,7 @@ function updateTurnOrder() {
       if (!rn.nextElementSibling || rn.nextElementSibling.tagName !== 'SPAN') {
         const span = document.createElement('span');
         span.style.cssText = 'font-size:0.75rem;color:var(--sub);margin-left:8px';
-        span.textContent = '(선턴잡이가 아닐 경우 자동 계산)';
+        span.textContent = '(턴 순서 1순위가 아닐 경우 자동 계산)';
         rn.parentNode.appendChild(span);
       }
     }

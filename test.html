@@ -278,13 +278,21 @@ const tgtOpts = (includeAll) =>
 function renderMonsters() {
   const presetOpts = Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
   const defaults = [
-    { name:'빛하피', base:101, rune:218, swift:true, arti:0, gAmt:30, gTgt:'all', sTgt:'none' },
-    { name:'물가루다', base:91,  rune:176, swift:false, arti:0, gAmt:100, gTgt:'2', sTgt:'none' },
-    { name:'풍조커',  base:103, rune:0,   swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none' },
+    { name:'빛하피', base:101, rune:218, swift:true, arti:0, gAmt:30, gTgt:'all', sTgt:'none', turn:1 },
+    { name:'물가루다', base:91,  rune:176, swift:false, arti:0, gAmt:100, gTgt:'2', sTgt:'none', turn:2 },
+    { name:'풍조커',  base:103, rune:0,   swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:3 },
   ];
   document.getElementById('monsters').innerHTML = defaults.map((d,i) => `
   <div class="monster-block">
     <h3>몬스터 ${i+1}</h3>
+    <div class="m-row">
+      <span class="m-lbl">턴 순서</span>
+      <select id="turn-${i}" onchange="updateTurnOrder()" style="width:100px">
+        <option value="1" ${d.turn===1?'selected':''}>1순위</option>
+        <option value="2" ${d.turn===2?'selected':''}>2순위</option>
+        <option value="3" ${d.turn===3?'selected':''}>3순위</option>
+      </select>
+    </div>
     <div class="m-row">
       <span class="m-lbl">프리셋</span>
       <select onchange="applyPreset(${i},this.value)">${presetOpts}</select>
@@ -299,7 +307,8 @@ function renderMonsters() {
     </div>
     <div class="m-row">
       <span class="m-lbl">뒷속 (표기)</span>
-      <input type="number" id="rn-${i}" value="${d.rune}" min="0">
+      <input type="number" id="rn-${i}" value="${d.rune}" min="0" ${d.turn!==1?'disabled':''}>
+      ${d.turn!==1?`<span style="font-size:0.75rem;color:var(--sub)">(자동계산)</span>`:''}
     </div>
     <div class="m-row">
       <span class="m-lbl">신속 세트</span>
@@ -332,11 +341,56 @@ function renderMonsters() {
     setSelectVal(`gt-${i}`, d.gTgt);
     setSelectVal(`st-${i}`, d.sTgt);
   });
+
+  // 초기 턴 순서 UI 업데이트
+  updateTurnOrder();
 }
 
 function setSelectVal(id, val) {
   const el = document.getElementById(id);
   if (el) for (let o of el.options) if (o.value === val) { o.selected = true; break; }
+}
+
+// 턴 순서 관리
+function getTurnOrder() {
+  // [0번 인덱스의 턴 순서, 1번 인덱스의 턴 순서, 2번 인덱스의 턴 순서]
+  return [0,1,2].map(i => +document.getElementById(`turn-${i}`).value);
+}
+
+function updateTurnOrder() {
+  const turns = getTurnOrder();
+  // 중복 체크 및 자동 수정
+  const counts = [0,0,0];
+  turns.forEach(t => counts[t-1]++);
+
+  // 중복이 있으면 자동 수정
+  let needed = [1,2,3];
+  for (let i = 0; i < 3; i++) {
+    const turn = turns[i];
+    if (counts[turn-1] > 1) {
+      // 이미 사용된 순서면 비어있는 순서로 변경
+      const unused = needed.find(n => !turns.includes(n));
+      if (unused) document.getElementById(`turn-${i}`).value = unused;
+    }
+  }
+
+  // 뒷속 입력칸 활성/비활성화
+  const newTurns = getTurnOrder();
+  for (let i = 0; i < 3; i++) {
+    const rn = document.getElementById(`rn-${i}`);
+    if (newTurns[i] === 1) {
+      rn.disabled = false;
+      rn.nextElementSibling?.remove();
+    } else {
+      rn.disabled = true;
+      if (!rn.nextElementSibling || rn.nextElementSibling.tagName !== 'SPAN') {
+        const span = document.createElement('span');
+        span.style.cssText = 'font-size:0.75rem;color:var(--sub);margin-left:8px';
+        span.textContent = '(자동계산)';
+        rn.parentNode.appendChild(span);
+      }
+    }
+  }
 }
 
 function applyPreset(idx, name) {
@@ -355,6 +409,7 @@ function applyPreset(idx, name) {
 function getMonsters() {
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
+  const turns = getTurnOrder();
   return [0,1,2].map(i => {
     const base  = +document.getElementById(`bs-${i}`).value || 0;
     const rune  = +document.getElementById(`rn-${i}`).value || 0;
@@ -364,9 +419,10 @@ function getMonsters() {
     const gAmt  = +document.getElementById(`ga-${i}`).value || 0;
     const gTgt  = document.getElementById(`gt-${i}`).value;
     const sTgt  = document.getElementById(`st-${i}`).value;
+    const turn  = turns[i];
     const speed = calcSpeed(base, rune, swift, ldr, tot);
     const speedBuff = calcBuff(speed, arti);
-    return { idx:i, name, base, rune, swift, arti, speed, speedBuff, gAmt, gTgt, sTgt, isAlly:true };
+    return { idx:i, name, base, rune, swift, arti, speed, speedBuff, gAmt, gTgt, sTgt, turn, isAlly:true };
   });
 }
 
@@ -470,6 +526,52 @@ function calculate() {
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
   const tr = TICK_RATE[mode];
+
+  // ★ 턴 순서 기반 공속 자동 계산
+  const byTurn = [0,0,0];
+  allies.forEach(a => byTurn[a.turn-1] = a);
+
+  // 1순위 몬스터 (첫 턴)
+  const first = byTurn[0];
+
+  // 2, 3순위 몬스터 공속 자동 계산
+  for (let turnIdx = 1; turnIdx < 3; turnIdx++) {
+    const ally = byTurn[turnIdx];
+    if (!ally) continue;
+
+    // 이전 턴 몬스터들의 게이지 보너스 계산
+    let totalBonus = 0;
+    for (let i = 0; i < turnIdx; i++) {
+      const prev = byTurn[i];
+      if (!prev) continue;
+      // 이전 몬스터가 게이지를 주면 이 몬스터가 받음
+      const getsGauge = prev.gTgt === 'all' || parseInt(prev.gTgt) === ally.idx;
+      if (getsGauge && prev.gAmt > 0) totalBonus += prev.gAmt;
+    }
+
+    // 첫 턴 소요 틱
+    const firstTick = Math.ceil(100 / (first.speed * tr));
+    // 목표 턴 소요 틱 (1순위 턴 + turnIdx개 턴 추가)
+    const targetTick = firstTick + turnIdx;
+
+    // 필요 공속 계산: ally_speed > enemySpd - totalBonus/(tr×targetTick)
+    const needSpeed = Math.ceil(enemySpd - totalBonus / (tr * targetTick));
+
+    // 공속에서 역으로 뒷속 계산
+    const mult = 1 + ldr/100 + tot/100;
+    const swRaw = ally.swift ? ally.base * 0.25 : 0;
+    const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
+    const baseContrib = ally.base * mult + swRaw - swCeil;
+    const needRune = Math.max(0, Math.ceil(needSpeed - baseContrib));
+
+    // 계산된 뒷속을 입력칸에 반영
+    document.getElementById(`rn-${ally.idx}`).value = needRune;
+
+    // 속도 업데이트 (다음 몬스터 계산에 사용)
+    ally.rune = needRune;
+    ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot);
+    ally.speedBuff = calcBuff(ally.speed, ally.arti);
+  }
 
   document.getElementById('results').classList.remove('hidden');
 

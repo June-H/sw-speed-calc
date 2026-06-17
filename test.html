@@ -966,6 +966,9 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
     const baseContrib = ally.base * mult + swRaw - swCeil;  // calculate()와 동일하게 ceil() 하지 않음
     const minRune = Math.max(0, Math.ceil(minSpeed - baseContrib));
 
+    // 디버깅: 각 몬스터별 계산 과정 로그
+    console.log(`[${ally.name}] 턴=${targetTurnOrder}, 목표틱=${estimatedTi}, 게이지=${bonus}%, minSpeed=${minSpeed}, 기본공속기여=${baseContrib.toFixed(2)}, minRune=${minRune}`);
+
     return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune };
   });
 

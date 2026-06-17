@@ -278,9 +278,9 @@ const tgtOpts = (includeAll) =>
 function renderMonsters() {
   const presetOpts = Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
   const defaults = [
-    { name:'빛하피', base:101, rune:0, swift:true, arti:0, gAmt:30, gTgt:'all', sTgt:'none', turn:1 },
-    { name:'물가루다', base:91,  rune:0, swift:false, arti:0, gAmt:100, gTgt:'2', sTgt:'none', turn:2 },
-    { name:'풍조커',  base:103, rune:0,   swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:3 },
+    { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:1 },
+    { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:2 },
+    { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:3 },
   ];
   document.getElementById('monsters').innerHTML = defaults.map((d,i) => `
   <div class="monster-block">

@@ -526,21 +526,21 @@ function calculate() {
   const tr = TICK_RATE[mode];
 
   // ★ 턴 순서 기반 공속 자동 계산
-  const byTurn = [0,0,0];
-  allies.forEach(a => byTurn[a.turn-1] = a);
+  // 턴 순서대로 정렬된 배열 생성
+  const sortedAllies = [...allies].sort((a, b) => a.turn - b.turn);
 
   // 1순위 몬스터 (첫 턴)
-  const first = byTurn[0];
+  const first = sortedAllies[0];
 
   // 2, 3순위 몬스터 공속 자동 계산
   for (let turnIdx = 1; turnIdx < 3; turnIdx++) {
-    const ally = byTurn[turnIdx];
+    const ally = sortedAllies[turnIdx];
     if (!ally) continue;
 
     // 이전 턴 몬스터들의 게이지 보너스 계산
     let totalBonus = 0;
     for (let i = 0; i < turnIdx; i++) {
-      const prev = byTurn[i];
+      const prev = sortedAllies[i];
       if (!prev) continue;
       // 이전 몬스터가 게이지를 주면 이 몬스터가 받음
       const getsGauge = prev.gTgt === 'all' || parseInt(prev.gTgt) === ally.idx;

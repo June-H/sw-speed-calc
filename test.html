@@ -924,11 +924,17 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot) {
 
     let minSpeed;
     if(getsSpeedBuff && buffMul > 1) {
-      // 속버프 받는 경우: 선턴잡이 T1틱 이후 버프 적용
+      // 속버프 받으면서 게이지 보너스도 함께 적용되는 경우
+      // speedBuff × TR × Ti + bonus ≥ lead.speed × TR × T1
+      // speedBuff ≥ (lead.speed × T1 - bonus/TR) / Ti
+      // ally.speed × buffMul ≥ (lead.speed × T1 - bonus/TR) / Ti
+      // ally.speed ≥ (lead.speed × T1 - bonus/TR) / (buffMul × Ti)
       const Tj = T1; // 버프 받는 시점(선턴잡이 turn)
-      minSpeed = Math.ceil(lead.speed * Ti / (Tj + buffMul * (Ti - Tj))) + 1;
+      const numerator = lead.speed * Tj - bonus / TR;
+      const denominator = buffMul * Ti;
+      minSpeed = Math.ceil(numerator / denominator) + 1;
     } else {
-      // 게이지 보너스만
+      // 게이지 보너스만 (속버프 없음)
       minSpeed = Math.ceil(lead.speed - bonus / (TR * Ti)) + 1;
     }
 

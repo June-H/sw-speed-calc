@@ -727,6 +727,19 @@ function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, 
 function calculate() {
   const allies = getMonsters();
   const enemySpd = getEnemySpeed();
+
+  // 디버깅: 상대 선턴잡이 설정 확인
+  console.log('=== 계산 시작 ===');
+  console.log('eMode:', eMode);
+  if (eMode === 'calc') {
+    console.log('e-base:', +document.getElementById('e-base').value);
+    console.log('e-rune:', +document.getElementById('e-rune').value);
+    console.log('e-swift:', document.getElementById('e-swift').checked);
+    console.log('e-leader:', +document.getElementById('e-leader').value);
+    console.log('e-totem:', +document.getElementById('e-totem').value);
+  }
+  console.log('계산된 enemySpd:', enemySpd);
+
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
   const tr = TICK_RATE[mode];
@@ -950,8 +963,8 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
     const mult = 1 + ldr/100 + tot/100;
     const swRaw  = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
-    const baseContrib = Math.ceil(ally.base * mult + swRaw - swCeil);
-    const minRune = Math.max(0, minSpeed - baseContrib);
+    const baseContrib = ally.base * mult + swRaw - swCeil;  // calculate()와 동일하게 ceil() 하지 않음
+    const minRune = Math.max(0, Math.ceil(minSpeed - baseContrib));
 
     return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune };
   });

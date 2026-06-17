@@ -562,10 +562,8 @@ function calculate() {
     const baseContrib = ally.base * mult + swRaw - swCeil;
     const needRune = Math.max(0, Math.ceil(needSpeed - baseContrib));
 
-    // 계산된 뒷속을 입력칸에 반영
-    document.getElementById(`rn-${ally.idx}`).value = needRune;
-
-    // 속도 업데이트 (다음 몬스터 계산에 사용)
+    // 계산된 뒷속으로 속도 업데이트 (다음 몬스터 계산에 사용)
+    // 입력칸에는 자동 입력하지 않음 (사용자가 수동으로 입력하도록)
     ally.rune = needRune;
     ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot);
     ally.speedBuff = calcBuff(ally.speed, ally.arti);
@@ -686,10 +684,10 @@ function calculate() {
 
 // ── 필요 최저 뒷속 요약 ──────────────────────────────
 function calcMinRuneSummary(allies, tickRate, ldr, tot) {
-  // 가장 빠른 몬스터(합속 최대)를 선턴잡이로 간주
-  const sorted = [...allies].sort((a,b) => b.speed - a.speed);
-  const lead   = sorted[0];
-  const others = sorted.slice(1);
+  // 턴 순서대로 정렬 (사용자가 설정한 turn 순서 존중)
+  const sortedByTurn = [...allies].sort((a,b) => a.turn - b.turn);
+  const lead   = sortedByTurn[0];
+  const others = sortedByTurn.slice(1);
   const TR     = tickRate;
 
   // 선턴잡이 첫 턴 틱

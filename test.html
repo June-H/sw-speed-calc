@@ -752,6 +752,10 @@ function calculate() {
   const first = sortedAllies[0];
 
   // 2, 3순위 몬스터 공속 자동 계산
+  // 1순위 몬스터의 첫 턴 틱과 속버프 여부 확인
+  const firstTick = Math.ceil(100 / (first.speed * tr));
+  const lead1stGivesSpeedBuff = first.sTgt === 'all';
+
   for (let turnIdx = 1; turnIdx < 3; turnIdx++) {
     const ally = sortedAllies[turnIdx];
     if (!ally) continue;
@@ -766,13 +770,26 @@ function calculate() {
       if (getsGauge && prev.gAmt > 0) totalBonus += prev.gAmt;
     }
 
-    // 첫 턴 소요 틱
-    const firstTick = Math.ceil(100 / (first.speed * tr));
     // 목표 턴 소요 틱 (1순위 턴 + turnIdx개 턴 추가)
     const targetTick = firstTick + turnIdx;
 
-    // 필요 공속 계산: ally_speed > enemySpd - totalBonus/(tr×targetTick)
-    const needSpeed = Math.ceil(enemySpd - totalBonus / (tr * targetTick));
+    // 이 몬스터가 속버프를 받는지 확인
+    const getsSpeedBuff = lead1stGivesSpeedBuff && (first.sTgt === 'all' || parseInt(first.sTgt) === ally.idx);
+
+    // 필요 공속 계산 (부분적 속버프 고려)
+    let needSpeed;
+    if (getsSpeedBuff && firstTick > 1) {
+      // 속버프를 받는 경우: 1~(firstTick-1)틱은 속버프 없음, firstTick~targetTick틱은 속버프 있음
+      const buffMul = calcBuff(ally.speed, ally.arti) / ally.speed;
+      const noBuffTicks = firstTick - 1;
+      const buffTicks = targetTick - firstTick;
+      const numerator = enemySpd * targetTick - totalBonus / tr;
+      const denominator = noBuffTicks + buffMul * buffTicks;
+      needSpeed = Math.ceil(numerator / denominator);
+    } else {
+      // 속버프를 받지 않으면 원래 로직
+      needSpeed = Math.ceil(enemySpd - totalBonus / (tr * targetTick));
+    }
 
     // 공속에서 역으로 뒷속 계산
     const mult = 1 + ldr/100 + tot/100;
@@ -924,6 +941,7 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
   });
 
   const T1 = allyFirstTurns[lead.name] || Math.ceil(100 / (lead.speed * TR));
+  const lead1stGivesSpeedBuff = lead.sTgt === 'all';
 
   // 각 2~3순위 몬스터에 대해 필요 공속 계산
   const rows = others.map((ally, idx) => {
@@ -948,17 +966,23 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
       return sum;
     }, 0);
 
-    // 속버프 여부
-    const getsSpeedBuff = allies.some(other => {
-      if(other.idx === ally.idx) return false;
-      return other.sTgt === 'all' || parseInt(other.sTgt) === ally.idx;
-    });
+    // 이 몬스터가 속버프를 받는지 확인
+    const getsSpeedBuff = lead1stGivesSpeedBuff && (lead.sTgt === 'all' || parseInt(lead.sTgt) === ally.idx);
     const buffMul = getsSpeedBuff ? calcBuff(ally.speed, ally.arti) / ally.speed : 1;
 
-    // 필요 공속 역산 (calculate() 함수와 동일한 로직)
-    // 적군 선턴보다 먼저 턴을 잡아야 함: ally.speed × TR × Ti + bonus ≥ enemySpd × TR × Ti
-    // => ally.speed ≥ enemySpd - bonus / (TR × Ti)
-    const minSpeed = Math.ceil(enemySpd - bonus / (TR * estimatedTi));
+    // 필요 공속 역산 (부분적 속버프 고려)
+    let minSpeed;
+    if (getsSpeedBuff && T1 > 1) {
+      // 속버프를 받는 경우: 1~(T1-1)틱은 속버프 없음, T1~estimatedTi틱은 속버프 있음
+      const noBuffTicks = T1 - 1;
+      const buffTicks = estimatedTi - T1;
+      const numerator = enemySpd * estimatedTi - bonus / TR;
+      const denominator = noBuffTicks + buffMul * buffTicks;
+      minSpeed = Math.ceil(numerator / denominator);
+    } else {
+      // 속버프를 받지 않으면 원래 로직
+      minSpeed = Math.ceil(enemySpd - bonus / (TR * estimatedTi));
+    }
 
     const mult = 1 + ldr/100 + tot/100;
     const swRaw  = ally.swift ? ally.base * 0.25 : 0;

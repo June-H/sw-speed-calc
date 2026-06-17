@@ -779,9 +779,9 @@ function calculate() {
     // 필요 공속 계산 (부분적 속버프 고려)
     let needSpeed;
     if (getsSpeedBuff && firstTick > 1) {
-      // 속버프를 받는 경우: 1~(firstTick-1)틱은 속버프 없음, firstTick~targetTick틱은 속버프 있음
+      // 속버프를 받는 경우: 1~firstTick틱은 속버프 없음, (firstTick+1)~targetTick틱은 속버프 있음
       const buffMul = calcBuff(ally.speed, ally.arti) / ally.speed;
-      const noBuffTicks = firstTick - 1;
+      const noBuffTicks = firstTick;
       const buffTicks = targetTick - firstTick;
       const numerator = enemySpd * targetTick - totalBonus / tr;
       const denominator = noBuffTicks + buffMul * buffTicks;
@@ -973,8 +973,8 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
     // 필요 공속 역산 (부분적 속버프 고려)
     let minSpeed;
     if (getsSpeedBuff && T1 > 1) {
-      // 속버프를 받는 경우: 1~(T1-1)틱은 속버프 없음, T1~estimatedTi틱은 속버프 있음
-      const noBuffTicks = T1 - 1;
+      // 속버프를 받는 경우: 1~T1틱은 속버프 없음, (T1+1)~estimatedTi틱은 속버프 있음
+      const noBuffTicks = T1;
       const buffTicks = estimatedTi - T1;
       const numerator = enemySpd * estimatedTi - bonus / TR;
       const denominator = noBuffTicks + buffMul * buffTicks;

@@ -207,15 +207,60 @@ let eMode = 'direct';
 
 const PRESETS = {
   '직접 입력': null,
-  '빛하피(빛)': { base: 101, skills: [{ gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'none' }] },
-  '물가루다':   { base: 91,  skills: [{ gaugeAmt: 100, gaugeTgt: '2',  speedTgt: 'none' }] },
-  '풍조커':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍드라칸':   { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '암초코':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '물해왕':     { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍머메':     { base: 116, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍써니':     { base: 108, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'all'  }] },
-  '불발키리':   { base: 104, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+  '빛하피(빛)': {
+    name: '빛하피',
+    base: 101,
+    skill: { gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'none' },
+    notes: '게이지 보너스 30% 제공 (전체), 선턴 조합 추천'
+  },
+  '물가루다': {
+    name: '물가루다',
+    base: 91,
+    skill: { gaugeAmt: 100, gaugeTgt: '2', speedTgt: 'none' },
+    notes: '특정 대상에 게이지 100% 제공'
+  },
+  '풍조커': {
+    name: '풍조커',
+    base: 103,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음 (선턴 전용)'
+  },
+  '풍드라칸': {
+    name: '풍드라칸',
+    base: 101,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '암초코': {
+    name: '암초코',
+    base: 103,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물해왕': {
+    name: '물해왕',
+    base: 101,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '풍머메': {
+    name: '풍머메',
+    base: 116,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '기본공속 최고'
+  },
+  '풍써니': {
+    name: '풍써니',
+    base: 108,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all' },
+    notes: '속버프 제공 (전체)'
+  },
+  '불발키리': {
+    name: '불발키리',
+    base: 104,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
 };
 
 function setMode(m) {
@@ -297,6 +342,7 @@ function renderMonsters() {
       <span class="m-lbl">프리셋</span>
       <select onchange="applyPreset(${i},this.value)">${presetOpts}</select>
     </div>
+    <div id="notes-${i}" style="font-size:0.75rem;color:var(--sub);margin:8px 0;padding:6px 8px;background:rgba(88,166,255,0.05);border-radius:6px;border-left:2px solid var(--accent);display:none"></div>
     <div class="m-row">
       <span class="m-lbl">이름</span>
       <input type="text" id="nm-${i}" value="${d.name}" style="width:110px">
@@ -394,12 +440,25 @@ function updateTurnOrder() {
 function applyPreset(idx, name) {
   const p = PRESETS[name];
   if (!p) return;
-  document.getElementById(`nm-${idx}`).value = name;
+
+  // 이름과 기본공속 설정
+  document.getElementById(`nm-${idx}`).value = p.name || name;
   document.getElementById(`bs-${idx}`).value = p.base;
-  if (p.skills && p.skills[0]) {
-    document.getElementById(`ga-${idx}`).value = p.skills[0].gaugeAmt;
-    setSelectVal(`gt-${idx}`, p.skills[0].gaugeTgt);
-    setSelectVal(`st-${idx}`, p.skills[0].speedTgt);
+
+  // 스킬 효과 설정 (새로운 구조: p.skill)
+  if (p.skill) {
+    document.getElementById(`ga-${idx}`).value = p.skill.gaugeAmt;
+    setSelectVal(`gt-${idx}`, p.skill.gaugeTgt);
+    setSelectVal(`st-${idx}`, p.skill.speedTgt);
+  }
+
+  // Notes 표시
+  const notesEl = document.getElementById(`notes-${idx}`);
+  if (p.notes) {
+    notesEl.textContent = `💡 ${p.notes}`;
+    notesEl.style.display = 'block';
+  } else {
+    notesEl.style.display = 'none';
   }
 }
 

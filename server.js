@@ -13,6 +13,10 @@ const pool = new Pool({
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
+// ─── 라우트 ────────────────────────────────────────────────────
+app.get('/test', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
+app.get('/index', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
 // ─── DB 초기화 ────────────────────────────────────────────────
 async function initDB() {
   await pool.query(`

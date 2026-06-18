@@ -14,6 +14,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 // ─── 라우트 ────────────────────────────────────────────────────
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
 app.get('/test', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
 app.get('/index', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 

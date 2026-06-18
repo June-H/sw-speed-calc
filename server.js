@@ -11,12 +11,13 @@ const pool = new Pool({
 });
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
 
-// ─── 라우트 ────────────────────────────────────────────────────
+// ─── 라우트 (static 파일보다 먼저 정의) ────────────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
 app.get('/test', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
 app.get('/index', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
+app.use(express.static(path.join(__dirname)));
 
 // ─── DB 초기화 ────────────────────────────────────────────────
 async function initDB() {

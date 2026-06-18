@@ -133,7 +133,16 @@ tr:last-child td { border-bottom: none; }
     <div id="monsters"></div>
   </div>
 
-  <!-- 상대방 -->
+  <!-- 상대 선턴잡이 토글 버튼 -->
+  <button id="btn-toggle-enemy" onclick="toggleEnemySpec()"
+          style="width:100%;padding:11px;background:var(--card2);color:var(--sub);border:1px solid var(--border);border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:12px;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--sub)'">
+    📋 상대 선턴잡이 스펙 입력하기
+  </button>
+
+  <!-- 상대방 (기본 숨김) -->
+  <div id="enemy-config" class="hidden">
   <div class="card">
     <div class="card-title">🔴 상대 선턴잡이 설정</div>
     <div class="row">
@@ -167,6 +176,13 @@ tr:last-child td { border-bottom: none; }
         <input type="number" id="e-totem" value="15" min="0" max="30"> %
       </div>
     </div>
+  </div>
+  </div>  <!-- enemy-config 닫기 -->
+
+  <!-- 경고 메시지 -->
+  <div id="warning-slower-first" class="hidden"
+       style="padding:12px;background:rgba(248,81,73,0.1);border:1px solid var(--red);border-radius:8px;color:var(--red);font-size:0.9rem;margin-bottom:12px;text-align:center;">
+    ⚠️ 아군 1순위(선턴) 몹이 상대 선턴잡이보다 느립니다.
   </div>
 
   <button class="calc-btn" onclick="calculate()">📊 계산하기</button>
@@ -204,6 +220,7 @@ tr:last-child td { border-bottom: none; }
 const TICK_RATE = { siege: 0.07, arena: 0.015 };
 let mode = 'siege';
 let eMode = 'direct';
+let useEnemySpec = false;  // 상대 선턴잡이 스펙 입력 여부
 
 const PRESETS = {
   '직접 입력': null,
@@ -402,6 +419,20 @@ function setMode(m) {
   // siege = 점령전(7%), arena = 실레나(1.5%)
   document.getElementById('btn-siege').classList.toggle('on', m === 'siege');
   document.getElementById('btn-arena').classList.toggle('on', m === 'arena');
+}
+
+function toggleEnemySpec() {
+  useEnemySpec = !useEnemySpec;
+  const enemyConfig = document.getElementById('enemy-config');
+  const btn = document.getElementById('btn-toggle-enemy');
+
+  enemyConfig.classList.toggle('hidden');
+
+  if (useEnemySpec) {
+    btn.textContent = '📋 상대 선턴잡이 스펙 입력 중... (클릭하여 숨기기)';
+  } else {
+    btn.textContent = '📋 상대 선턴잡이 스펙 입력하기';
+  }
 }
 
 function copyFastestAlly() {
@@ -726,19 +757,16 @@ function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, 
 
 function calculate() {
   const allies = getMonsters();
-  const enemySpd = getEnemySpeed();
 
-  // 디버깅: 상대 선턴잡이 설정 확인
-  console.log('=== 계산 시작 ===');
-  console.log('eMode:', eMode);
-  if (eMode === 'calc') {
-    console.log('e-base:', +document.getElementById('e-base').value);
-    console.log('e-rune:', +document.getElementById('e-rune').value);
-    console.log('e-swift:', document.getElementById('e-swift').checked);
-    console.log('e-leader:', +document.getElementById('e-leader').value);
-    console.log('e-totem:', +document.getElementById('e-totem').value);
+  // useEnemySpec에 따라 enemySpd 결정
+  let enemySpd;
+  if (useEnemySpec) {
+    enemySpd = getEnemySpeed();
+  } else {
+    // 기본값: 1순위 몬스터의 공속과 동일 (2번 케이스)
+    const firstAlly = allies.find(a => a.turn === 1);
+    enemySpd = firstAlly.speed;
   }
-  console.log('계산된 enemySpd:', enemySpd);
 
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
@@ -750,6 +778,16 @@ function calculate() {
 
   // 1순위 몬스터 (첫 턴)
   const first = sortedAllies[0];
+
+  // 3번 케이스: 아군 1순위 < 상대 검사
+  if (useEnemySpec && first.speed < enemySpd) {
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('warning-slower-first').classList.remove('hidden');
+    return;
+  } else {
+    document.getElementById('warning-slower-first').classList.add('hidden');
+    document.getElementById('results').classList.remove('hidden');
+  }
 
   // 2, 3순위 몬스터 공속 자동 계산
   // 1순위 몬스터의 첫 턴 틱과 속버프 여부 확인
@@ -804,8 +842,6 @@ function calculate() {
     ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot);
     ally.speedBuff = calcBuff(ally.speed, ally.arti);
   }
-
-  document.getElementById('results').classList.remove('hidden');
 
   // ★ 필요 최저 뒷속 요약
   calcMinRuneSummary(allies, tr, ldr, tot, enemySpd);

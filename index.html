@@ -489,7 +489,9 @@ const tgtOpts = (includeAll) =>
   `<option value="0">몬1</option><option value="1">몬2</option><option value="2">몬3</option>`;
 
 function renderMonsters() {
-  const presetOpts = Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
+  const presetKeys = Object.keys(PRESETS);
+  const sortedKeys = ['직접 입력', ...presetKeys.filter(k => k !== '직접 입력').sort()];
+  const presetOpts = sortedKeys.map(k => `<option>${k}</option>`).join('');
   const defaults = [
     { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:1 },
     { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:2 },

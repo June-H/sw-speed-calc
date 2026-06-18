@@ -135,11 +135,14 @@ tr:last-child td { border-bottom: none; }
 
   <!-- 상대 선턴잡이 토글 버튼 -->
   <button id="btn-toggle-enemy" onclick="toggleEnemySpec()"
-          style="width:100%;padding:11px;background:var(--card2);color:var(--sub);border:1px solid var(--border);border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:12px;"
+          style="width:100%;padding:11px;background:var(--card2);color:var(--sub);border:1px solid var(--border);border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:5px;"
           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--sub)'">
     📋 상대 선턴잡이 스펙 입력하기
   </button>
+  <p style="margin:0 0 12px 0;color:var(--sub);font-size:0.82rem;text-align:center;">
+    (상대 선턴잡이 스펙 미입력 시 자동으로 아군 1순위(선턴)몹 기준 계산)
+  </p>
 
   <!-- 상대방 (기본 숨김) -->
   <div id="enemy-config" class="hidden">

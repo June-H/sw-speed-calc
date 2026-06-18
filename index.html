@@ -127,7 +127,25 @@ tr:last-child td { border-bottom: none; }
     </div>
   </div>
 
-  <!-- 상대방 -->
+  <!-- 아군 몬스터 -->
+  <div class="card">
+    <div class="card-title">🟢 아군 몬스터 (3마리)</div>
+    <div id="monsters"></div>
+  </div>
+
+  <!-- 상대 선턴잡이 토글 버튼 -->
+  <button id="btn-toggle-enemy" onclick="toggleEnemySpec()"
+          style="width:100%;padding:11px;background:var(--card2);color:var(--sub);border:1px solid var(--border);border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:5px;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--sub)'">
+    📋 상대 선턴잡이 스펙 입력하기
+  </button>
+  <p style="margin:0 0 12px 0;color:var(--sub);font-size:0.82rem;text-align:center;">
+    (상대 선턴잡이 스펙 미입력 시 자동으로 아군 1순위(선턴)몹 기준 계산)
+  </p>
+
+  <!-- 상대방 (기본 숨김) -->
+  <div id="enemy-config" class="hidden">
   <div class="card">
     <div class="card-title">🔴 상대 선턴잡이 설정</div>
     <div class="row">
@@ -148,12 +166,12 @@ tr:last-child td { border-bottom: none; }
       </div>
     </div>
     <div id="e-calc">
-      <div class="row"><span class="lbl">기본공속</span><input type="number" id="e-base" value="101" min="1"></div>
-      <div class="row"><span class="lbl">뒷속</span><input type="number" id="e-rune" value="218" min="0"></div>
-      <div class="row"><span class="lbl">신속 세트</span><input type="checkbox" id="e-swift"></div>
+      <div class="row"><span class="lbl">기본공속</span><input type="number" id="e-base" value="115" min="1"></div>
+      <div class="row"><span class="lbl">뒷속</span><input type="number" id="e-rune" value="240" min="0"></div>
+      <div class="row"><span class="lbl">신속 세트</span><input type="checkbox" id="e-swift" checked></div>
       <div class="row">
         <span class="lbl">상대 리더 공속</span>
-        <input type="number" id="e-leader" value="33" min="0" max="60"> %
+        <input type="number" id="e-leader" value="28" min="0" max="60"> %
         <span style="font-size:0.74rem;color:var(--sub)">(아군과 다를 수 있음)</span>
       </div>
       <div class="row">
@@ -162,11 +180,12 @@ tr:last-child td { border-bottom: none; }
       </div>
     </div>
   </div>
+  </div>  <!-- enemy-config 닫기 -->
 
-  <!-- 아군 몬스터 -->
-  <div class="card">
-    <div class="card-title">🟢 아군 몬스터 (3마리)</div>
-    <div id="monsters"></div>
+  <!-- 경고 메시지 -->
+  <div id="warning-slower-first" class="hidden"
+       style="padding:12px;background:rgba(248,81,73,0.1);border:1px solid var(--red);border-radius:8px;color:var(--red);font-size:0.9rem;margin-bottom:12px;text-align:center;">
+    ⚠️ 아군 1순위(선턴) 몹이 상대 선턴잡이보다 느립니다.
   </div>
 
   <button class="calc-btn" onclick="calculate()">📊 계산하기</button>
@@ -204,18 +223,198 @@ tr:last-child td { border-bottom: none; }
 const TICK_RATE = { siege: 0.07, arena: 0.015 };
 let mode = 'siege';
 let eMode = 'direct';
+let useEnemySpec = false;  // 상대 선턴잡이 스펙 입력 여부
 
 const PRESETS = {
   '직접 입력': null,
-  '빛하피(빛)': { base: 101, skills: [{ gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'none' }] },
-  '물가루다':   { base: 91,  skills: [{ gaugeAmt: 100, gaugeTgt: '2',  speedTgt: 'none' }] },
-  '풍조커':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍드라칸':   { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '암초코':     { base: 103, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '물해왕':     { base: 101, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍머메':     { base: 116, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
-  '풍써니':     { base: 108, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'all'  }] },
-  '불발키리':   { base: 104, skills: [{ gaugeAmt: 0,   gaugeTgt: 'none', speedTgt: 'none' }] },
+  '빛데나': {
+    name: '빛데나',
+    base: 101,
+    skill: { gaugeAmt: 20, gaugeTgt: 'all', speedTgt: 'none' },
+    notes: '아군 전체 20% 게업'
+  },
+  '물로보': {
+    name: '물로보',
+    base: 101,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물발키리': {
+    name: '물발키리',
+    base: 101,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물무희': {
+    name: '물무희',
+    base: 101,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물푸딩': {
+    name: '물푸딩',
+    base: 111,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all' },
+    notes: '아군 전체 속업'
+  },
+  '물시리': {
+    name: '물시리',
+    base: 106,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '풍배틀': {
+    name: '풍배틀',
+    base: 119,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물닌자': {
+    name: '물닌자',
+    base: 107,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물호박': {
+    name: '물호박',
+    base: 101,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all' },
+    notes: '전체 속버프 부여, 의보로 추가되는 공속 따로 입력하지 말고 뒷속만 입력',
+    extraSpeedBonus: 39.5
+  },
+  '물헬하': {
+    name: '물헬하',
+    base: 115,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '빛폴': {
+    name: '빛폴',
+    base: 102,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '불탄지로': {
+    name: '불탄지로',
+    base: 103,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '암하그': {
+    name: '암하그',
+    base: 120,
+    skill: { gaugeAmt: 15, gaugeTgt: 'none', speedTgt: 'all' },
+    notes: '전체 속버프 부여, 1인 15% 게업 부여(몇 번 몹에 지정할지 선택해주셔야 함)'
+  },
+  '불삽살': {
+    name: '불삽살',
+    base: 103,
+    skill: { gaugeAmt: 15, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '1인 15% 게업 부여(몇 번 몹에 지정할지 선택해주셔야 함)'
+  },
+  '빛늑인': {
+    name: '빛늑인',
+    base: 115,
+    skill: { gaugeAmt: 15, gaugeTgt: 'all', speedTgt: 'all' },
+    notes: '전체 속버프 부여, 전체 15% 게업 부여'
+  },
+  '빛야만': {
+    name: '빛야만',
+    base: 103,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '불스나': {
+    name: '불스나',
+    base: 112,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '암하르퓨': {
+    name: '암하르퓨',
+    base: 104,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물묘지기': {
+    name: '물묘지기',
+    base: 98,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '암헬하': {
+    name: '암헬하',
+    base: 115,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음',
+    extraSpeedBonus: 25
+  },
+  '물이누': {
+    name: '물이누',
+    base: 108,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '불춘리': {
+    name: '불춘리',
+    base: 105,
+    skill: { gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'all' },
+    notes: '전체 속버프 부여, 전체 30% 게업 부여'
+  },
+  '암마궁': {
+    name: '암마궁',
+    base: 120,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '풍초코': {
+    name: '풍초코',
+    base: 103,
+    skill: { gaugeAmt: 15, gaugeTgt: 'al', speedTgt: 'none' },
+    notes: '전체 15% 게업 부여'
+  },
+  '빛하피': {
+    name: '빛하피',
+    base: 120,
+    skill: { gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'none' },
+    notes: '전체 30% 게업 부여'
+  },
+  '불배틀': {
+    name: '불배틀',
+    base: 104,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '물마샬캣': {
+    name: '물마샬캣',
+    base: 119,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '풍사보': {
+    name: '풍사보',
+    base: 104,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '암거문고': {
+    name: '암거문고',
+    base: 107,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all' },
+    notes: '전체 속버프 부여'
+  },
+  '빛하그': {
+    name: '빛하그',
+    base: 105,
+    skill: { gaugeAmt: 100, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '1인 100% 게업 부여(몇 번 몹에 지정할지 선택해주셔야 함)'
+  },
+  '빛가루다': {
+    name: '빛가루다',
+    base: 95,
+    skill: { gaugeAmt: 100, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '1인 100% 게업 부여(몇 번 몹에 지정할지 선택해주셔야 함)'
+  },
 };
 
 function setMode(m) {
@@ -223,6 +422,20 @@ function setMode(m) {
   // siege = 점령전(7%), arena = 실레나(1.5%)
   document.getElementById('btn-siege').classList.toggle('on', m === 'siege');
   document.getElementById('btn-arena').classList.toggle('on', m === 'arena');
+}
+
+function toggleEnemySpec() {
+  useEnemySpec = !useEnemySpec;
+  const enemyConfig = document.getElementById('enemy-config');
+  const btn = document.getElementById('btn-toggle-enemy');
+
+  enemyConfig.classList.toggle('hidden');
+
+  if (useEnemySpec) {
+    btn.textContent = '📋 상대 선턴잡이 스펙 입력 중... (클릭하여 숨기기)';
+  } else {
+    btn.textContent = '📋 상대 선턴잡이 스펙 입력하기';
+  }
 }
 
 function copyFastestAlly() {
@@ -278,17 +491,26 @@ const tgtOpts = (includeAll) =>
 function renderMonsters() {
   const presetOpts = Object.keys(PRESETS).map(k => `<option>${k}</option>`).join('');
   const defaults = [
-    { name:'빛하피', base:101, rune:218, swift:true, arti:0, gAmt:30, gTgt:'all', sTgt:'none' },
-    { name:'물가루다', base:91,  rune:176, swift:false, arti:0, gAmt:100, gTgt:'2', sTgt:'none' },
-    { name:'풍조커',  base:103, rune:0,   swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none' },
+    { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:1 },
+    { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:2 },
+    { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:3 },
   ];
   document.getElementById('monsters').innerHTML = defaults.map((d,i) => `
   <div class="monster-block">
     <h3>몬스터 ${i+1}</h3>
     <div class="m-row">
+      <span class="m-lbl">턴 순서</span>
+      <select id="turn-${i}" onchange="updateTurnOrder()" style="width:100px">
+        <option value="1" ${d.turn===1?'selected':''}>1순위</option>
+        <option value="2" ${d.turn===2?'selected':''}>2순위</option>
+        <option value="3" ${d.turn===3?'selected':''}>3순위</option>
+      </select>
+    </div>
+    <div class="m-row">
       <span class="m-lbl">프리셋</span>
       <select onchange="applyPreset(${i},this.value)">${presetOpts}</select>
     </div>
+    <div id="notes-${i}" style="font-size:0.75rem;color:var(--sub);margin:8px 0;padding:6px 8px;background:rgba(88,166,255,0.05);border-radius:6px;border-left:2px solid var(--accent);display:none"></div>
     <div class="m-row">
       <span class="m-lbl">이름</span>
       <input type="text" id="nm-${i}" value="${d.name}" style="width:110px">
@@ -299,7 +521,7 @@ function renderMonsters() {
     </div>
     <div class="m-row">
       <span class="m-lbl">뒷속 (표기)</span>
-      <input type="number" id="rn-${i}" value="${d.rune}" min="0">
+      <input type="number" id="rn-${i}" value="${d.rune}" min="0" ${d.turn!==1?'disabled':''} placeholder="자동 계산">
     </div>
     <div class="m-row">
       <span class="m-lbl">신속 세트</span>
@@ -308,10 +530,9 @@ function renderMonsters() {
     <div class="m-row">
       <span class="m-lbl">아티 속버프%</span>
       <input type="number" id="at-${i}" value="${d.arti}" min="0" max="100"> %
-      <span style="font-size:.72rem;color:var(--sub)">(0이면 기본 30%)</span>
     </div>
     <div class="skill-box">
-      <div class="skill-title">스킬 효과 (이 몬스터 턴 시)</div>
+      <div class="skill-title">이 몬스터 턴에서 부여하는 스킬 효과</div>
       <div class="skill-row">
         <span style="color:var(--sub)">게이지</span>
         <input type="number" id="ga-${i}" value="${d.gAmt}" min="0" max="100" placeholder="%"> %
@@ -332,6 +553,9 @@ function renderMonsters() {
     setSelectVal(`gt-${i}`, d.gTgt);
     setSelectVal(`st-${i}`, d.sTgt);
   });
+
+  // 초기 턴 순서 UI 업데이트
+  updateTurnOrder();
 }
 
 function setSelectVal(id, val) {
@@ -339,15 +563,70 @@ function setSelectVal(id, val) {
   if (el) for (let o of el.options) if (o.value === val) { o.selected = true; break; }
 }
 
+// 턴 순서 관리
+function getTurnOrder() {
+  // [0번 인덱스의 턴 순서, 1번 인덱스의 턴 순서, 2번 인덱스의 턴 순서]
+  return [0,1,2].map(i => +document.getElementById(`turn-${i}`).value);
+}
+
+function updateTurnOrder() {
+  const turns = getTurnOrder();
+  // 중복 체크 및 자동 수정
+  const counts = [0,0,0];
+  turns.forEach(t => counts[t-1]++);
+
+  // 중복이 있으면 자동 수정
+  let needed = [1,2,3];
+  for (let i = 0; i < 3; i++) {
+    const turn = turns[i];
+    if (counts[turn-1] > 1) {
+      // 이미 사용된 순서면 비어있는 순서로 변경
+      const unused = needed.find(n => !turns.includes(n));
+      if (unused) document.getElementById(`turn-${i}`).value = unused;
+    }
+  }
+
+  // 뒷속 입력칸 활성/비활성화
+  const newTurns = getTurnOrder();
+  for (let i = 0; i < 3; i++) {
+    const rn = document.getElementById(`rn-${i}`);
+    if (newTurns[i] === 1) {
+      rn.disabled = false;
+      rn.nextElementSibling?.remove();
+    } else {
+      rn.disabled = true;
+      if (!rn.nextElementSibling || rn.nextElementSibling.tagName !== 'SPAN') {
+        const span = document.createElement('span');
+        span.style.cssText = 'font-size:0.75rem;color:var(--sub);margin-left:8px';
+        span.textContent = '(턴 순서 1순위가 아닐 경우 자동 계산)';
+        rn.parentNode.appendChild(span);
+      }
+    }
+  }
+}
+
 function applyPreset(idx, name) {
   const p = PRESETS[name];
   if (!p) return;
-  document.getElementById(`nm-${idx}`).value = name;
+
+  // 이름과 기본공속 설정
+  document.getElementById(`nm-${idx}`).value = p.name || name;
   document.getElementById(`bs-${idx}`).value = p.base;
-  if (p.skills && p.skills[0]) {
-    document.getElementById(`ga-${idx}`).value = p.skills[0].gaugeAmt;
-    setSelectVal(`gt-${idx}`, p.skills[0].gaugeTgt);
-    setSelectVal(`st-${idx}`, p.skills[0].speedTgt);
+
+  // 스킬 효과 설정 (새로운 구조: p.skill)
+  if (p.skill) {
+    document.getElementById(`ga-${idx}`).value = p.skill.gaugeAmt;
+    setSelectVal(`gt-${idx}`, p.skill.gaugeTgt);
+    setSelectVal(`st-${idx}`, p.skill.speedTgt);
+  }
+
+  // Notes 표시
+  const notesEl = document.getElementById(`notes-${idx}`);
+  if (p.notes) {
+    notesEl.textContent = `💡 ${p.notes}`;
+    notesEl.style.display = 'block';
+  } else {
+    notesEl.style.display = 'none';
   }
 }
 
@@ -355,6 +634,7 @@ function applyPreset(idx, name) {
 function getMonsters() {
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
+  const turns = getTurnOrder();
   return [0,1,2].map(i => {
     const base  = +document.getElementById(`bs-${i}`).value || 0;
     const rune  = +document.getElementById(`rn-${i}`).value || 0;
@@ -364,9 +644,23 @@ function getMonsters() {
     const gAmt  = +document.getElementById(`ga-${i}`).value || 0;
     const gTgt  = document.getElementById(`gt-${i}`).value;
     const sTgt  = document.getElementById(`st-${i}`).value;
-    const speed = calcSpeed(base, rune, swift, ldr, tot);
+    const turn  = turns[i];
+    let speed = calcSpeed(base, rune, swift, ldr, tot);
+
+    // 특정 몬스터에 대한 예외 규칙 적용 (예: 물호박 의보 공속)
+    const presetName = Object.keys(PRESETS).find(k => {
+      const p = PRESETS[k];
+      return p && p.name === name;
+    });
+    if (presetName) {
+      const preset = PRESETS[presetName];
+      if (preset.extraSpeedBonus) {
+        speed += preset.extraSpeedBonus;
+      }
+    }
+
     const speedBuff = calcBuff(speed, arti);
-    return { idx:i, name, base, rune, swift, arti, speed, speedBuff, gAmt, gTgt, sTgt, isAlly:true };
+    return { idx:i, name, base, rune, swift, arti, speed, speedBuff, gAmt, gTgt, sTgt, turn, isAlly:true };
   });
 }
 
@@ -466,15 +760,94 @@ function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, 
 
 function calculate() {
   const allies = getMonsters();
-  const enemySpd = getEnemySpeed();
+
+  // useEnemySpec에 따라 enemySpd 결정
+  let enemySpd;
+  if (useEnemySpec) {
+    enemySpd = getEnemySpeed();
+  } else {
+    // 기본값: 1순위 몬스터의 공속과 동일 (2번 케이스)
+    const firstAlly = allies.find(a => a.turn === 1);
+    enemySpd = firstAlly.speed;
+  }
+
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
   const tr = TICK_RATE[mode];
 
-  document.getElementById('results').classList.remove('hidden');
+  // ★ 턴 순서 기반 공속 자동 계산
+  // 턴 순서대로 정렬된 배열 생성
+  const sortedAllies = [...allies].sort((a, b) => a.turn - b.turn);
+
+  // 1순위 몬스터 (첫 턴)
+  const first = sortedAllies[0];
+
+  // 3번 케이스: 아군 1순위 < 상대 검사
+  if (useEnemySpec && first.speed < enemySpd) {
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('warning-slower-first').classList.remove('hidden');
+    return;
+  } else {
+    document.getElementById('warning-slower-first').classList.add('hidden');
+    document.getElementById('results').classList.remove('hidden');
+  }
+
+  // 2, 3순위 몬스터 공속 자동 계산
+  // 1순위 몬스터의 첫 턴 틱과 속버프 여부 확인
+  const firstTick = Math.ceil(100 / (first.speed * tr));
+  const lead1stGivesSpeedBuff = first.sTgt === 'all';
+
+  for (let turnIdx = 1; turnIdx < 3; turnIdx++) {
+    const ally = sortedAllies[turnIdx];
+    if (!ally) continue;
+
+    // 이전 턴 몬스터들의 게이지 보너스 계산
+    let totalBonus = 0;
+    for (let i = 0; i < turnIdx; i++) {
+      const prev = sortedAllies[i];
+      if (!prev) continue;
+      // 이전 몬스터가 게이지를 주면 이 몬스터가 받음
+      const getsGauge = prev.gTgt === 'all' || parseInt(prev.gTgt) === ally.idx;
+      if (getsGauge && prev.gAmt > 0) totalBonus += prev.gAmt;
+    }
+
+    // 목표 턴 소요 틱 (1순위 턴 + turnIdx개 턴 추가)
+    const targetTick = firstTick + turnIdx;
+
+    // 이 몬스터가 속버프를 받는지 확인
+    const getsSpeedBuff = lead1stGivesSpeedBuff && (first.sTgt === 'all' || parseInt(first.sTgt) === ally.idx);
+
+    // 필요 공속 계산 (부분적 속버프 고려)
+    let needSpeed;
+    if (getsSpeedBuff && firstTick > 1) {
+      // 속버프를 받는 경우: 1~firstTick틱은 속버프 없음, (firstTick+1)~targetTick틱은 속버프 있음
+      const buffMul = calcBuff(ally.speed, ally.arti) / ally.speed;
+      const noBuffTicks = firstTick;
+      const buffTicks = targetTick - firstTick;
+      const numerator = enemySpd * targetTick - totalBonus / tr;
+      const denominator = noBuffTicks + buffMul * buffTicks;
+      needSpeed = Math.ceil(numerator / denominator);
+    } else {
+      // 속버프를 받지 않으면 원래 로직
+      needSpeed = Math.ceil(enemySpd - totalBonus / (tr * targetTick));
+    }
+
+    // 공속에서 역으로 뒷속 계산
+    const mult = 1 + ldr/100 + tot/100;
+    const swRaw = ally.swift ? ally.base * 0.25 : 0;
+    const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
+    const baseContrib = ally.base * mult + swRaw - swCeil;
+    const needRune = Math.max(0, Math.ceil(needSpeed - baseContrib));
+
+    // 계산된 뒷속으로 속도 업데이트 (다음 몬스터 계산에 사용)
+    // 입력칸에는 자동 입력하지 않음 (사용자가 수동으로 입력하도록)
+    ally.rune = needRune;
+    ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot);
+    ally.speedBuff = calcBuff(ally.speed, ally.arti);
+  }
 
   // ★ 필요 최저 뒷속 요약
-  calcMinRuneSummary(allies, tr, ldr, tot);
+  calcMinRuneSummary(allies, tr, ldr, tot, enemySpd);
 
   // Stat table
   const sb = document.getElementById('stat-body');
@@ -585,89 +958,108 @@ function calculate() {
 }
 
 // ── 필요 최저 뒷속 요약 ──────────────────────────────
-function calcMinRuneSummary(allies, tickRate, ldr, tot) {
-  // 가장 빠른 몬스터(합속 최대)를 선턴잡이로 간주
-  const sorted = [...allies].sort((a,b) => b.speed - a.speed);
-  const lead   = sorted[0];
-  const others = sorted.slice(1);
-  const TR     = tickRate;
+function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
+  // 턴 순서대로 정렬
+  const sortedByTurn = [...allies].sort((a,b) => a.turn - b.turn);
+  const lead = sortedByTurn[0];
+  const others = sortedByTurn.slice(1);
+  const TR = tickRate;
 
-  // 선턴잡이 첫 턴 틱
-  const T1 = Math.floor(100 / (lead.speed * TR)) + 1;
+  if(others.length === 0) {
+    document.getElementById('min-rune-summary').innerHTML = '<p style="color:var(--sub);font-size:0.83rem">아군 몬스터가 2마리 이상 필요합니다.</p>';
+    return;
+  }
 
+  // 현재 설정으로 시뮬 실행해서 각 아군의 첫 턴 틱 파악
+  const simEvents = simulate(allies, enemySpd, TR, 100);
+  const allyFirstTurns = {};
+  simEvents.forEach(ev => {
+    if (ev.entity.isAlly && !(ev.entity.name in allyFirstTurns)) {
+      allyFirstTurns[ev.entity.name] = ev.tick;
+    }
+  });
+
+  const T1 = allyFirstTurns[lead.name] || Math.ceil(100 / (lead.speed * TR));
+  const lead1stGivesSpeedBuff = lead.sTgt === 'all';
+
+  // 각 2~3순위 몬스터에 대해 필요 공속 계산
   const rows = others.map((ally, idx) => {
-    const Ti = T1 + idx + 1; // 중턴 목표 틱
+    const targetTurnOrder = ally.turn; // 사용자가 설정한 턴 순서
 
-    // 이 몬스터가 받는 게이지 보너스 (다른 아군 스킬에서)
+    // 목표: 이 몬스터가 정확히 targetTurnOrder번째 턴을 잡아야 함
+    // 다른 선턴 개수 계산: 이 몬스터보다 turn이 작은 아군 개수
+    const priorTurns = allies.filter(m => m.turn < targetTurnOrder).length;
+
+    // 추정 목표 틱: lead의 turn이 T1이면, priorTurns번째 몬스터는 대략 T1 + priorTurns틱
+    // (실제로는 게이지 보너스와 속버프에 따라 다르지만, 역산의 시작점)
+    const estimatedTi = T1 + priorTurns;
+
+    // 이 몬스터가 받는 게이지 보너스
     const bonus = allies.reduce((sum, other) => {
       if(other.idx === ally.idx) return sum;
       const tgtMatch = other.gTgt === 'all' || parseInt(other.gTgt) === ally.idx;
       if(tgtMatch && other.gAmt > 0) {
-        // 해당 스킬 발동자의 첫 턴이 Ti 이전이면 보너스 적용
-        const giverSpeed = other.speed;
-        const giverT     = Math.floor(100 / (giverSpeed * TR)) + 1;
-        if(giverT < Ti) return sum + other.gAmt;
+        const otherFirstTurn = allyFirstTurns[other.name] || Math.ceil(100 / (other.speed * TR));
+        if(otherFirstTurn < estimatedTi) return sum + other.gAmt;
       }
       return sum;
     }, 0);
 
-    // 속버프 여부 확인
-    const getsSpeedBuff = allies.some(other => {
-      if(other.idx === ally.idx) return false;
-      return other.sTgt === 'all' || parseInt(other.sTgt) === ally.idx;
-    });
+    // 이 몬스터가 속버프를 받는지 확인
+    const getsSpeedBuff = lead1stGivesSpeedBuff && (lead.sTgt === 'all' || parseInt(lead.sTgt) === ally.idx);
     const buffMul = getsSpeedBuff ? calcBuff(ally.speed, ally.arti) / ally.speed : 1;
 
+    // 필요 공속 역산 (부분적 속버프 고려)
     let minSpeed;
-    if(getsSpeedBuff && buffMul > 1) {
-      // 속버프 받는 경우: 선턴잡이 T1틱 이후 버프 적용
-      const Tj = T1; // 버프 받는 시점(선턴잡이 turn)
-      minSpeed = Math.ceil(lead.speed * Ti / (Tj + buffMul * (Ti - Tj))) + 1;
+    if (getsSpeedBuff && T1 > 1) {
+      // 속버프를 받는 경우: 1~T1틱은 속버프 없음, (T1+1)~estimatedTi틱은 속버프 있음
+      const noBuffTicks = T1;
+      const buffTicks = estimatedTi - T1;
+      const numerator = enemySpd * estimatedTi - bonus / TR;
+      const denominator = noBuffTicks + buffMul * buffTicks;
+      minSpeed = Math.ceil(numerator / denominator);
     } else {
-      // 게이지 보너스만
-      minSpeed = Math.ceil(lead.speed - bonus / (TR * Ti)) + 1;
+      // 속버프를 받지 않으면 원래 로직
+      minSpeed = Math.ceil(enemySpd - bonus / (TR * estimatedTi));
     }
 
     const mult = 1 + ldr/100 + tot/100;
     const swRaw  = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
-    const baseContrib = Math.ceil(ally.base * mult + swRaw - swCeil);
-    const minRune = Math.max(0, minSpeed - baseContrib);
-    const ok = ally.rune >= minRune;
+    const baseContrib = ally.base * mult + swRaw - swCeil;  // calculate()와 동일하게 ceil() 하지 않음
+    const minRune = Math.max(0, Math.ceil(minSpeed - baseContrib));
 
-    return { name: ally.name, Ti, bonus, minSpeed, minRune, curRune: ally.rune, ok };
+    // 디버깅: 각 몬스터별 계산 과정 로그
+    console.log(`[${ally.name}] 턴=${targetTurnOrder}, 목표틱=${estimatedTi}, 게이지=${bonus}%, minSpeed=${minSpeed}, 기본공속기여=${baseContrib.toFixed(2)}, minRune=${minRune}`);
+
+    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune, arti: ally.arti };
   });
 
   // 렌더
   const div = document.getElementById('min-rune-summary');
-  if(rows.length === 0) { div.innerHTML = '<p style="color:var(--sub);font-size:0.83rem">아군 몬스터가 2마리 이상 필요합니다.</p>'; return; }
-
   let html = `<table class="min-rune-table">
     <thead><tr>
       <th>몬스터</th>
       <th>목표 틱</th>
       <th>게이지 보너스</th>
+      <th>아티 속버프%</th>
       <th>필요 최저 뒷속</th>
-      <th>현재 상태</th>
     </tr></thead><tbody>`;
 
   rows.forEach(r => {
-    const status = r.ok
-      ? `<span class="min-rune-ok">✓ 현재 ${r.curRune} 충족</span>`
-      : `<span class="min-rune-fail">✗ 현재 ${r.curRune} / ${r.minRune - r.curRune} 부족</span>`;
     html += `<tr>
       <td style="font-weight:600">${r.name}</td>
       <td style="color:var(--sub)">${r.Ti}틱</td>
       <td style="color:var(--sub)">${r.bonus > 0 ? '+'+r.bonus+'%' : '-'}</td>
+      <td style="color:var(--sub)">${r.arti !== undefined ? r.arti + '%' : '-'}</td>
       <td><span class="min-rune-val">${r.minRune}</span></td>
-      <td>${status}</td>
     </tr>`;
   });
 
   html += `</tbody></table>
     <p class="min-rune-note">
-      📌 기준: <strong>${lead.name}</strong> (합속 ${lead.speed}) 기준으로 계산.
-      ${lead.name}이 선턴(${T1}틱)을 잡은 후 각 몬스터가 차례로 중턴/후턴을 먹기 위한 최소 뒷속입니다.
+      📌 기준: <strong>${lead.name}</strong> (${T1}틱) 기준으로 계산.
+      각 몬스터가 설정한 턴 순서대로 턴을 잡기 위한 최소 뒷속입니다.
     </p>`;
   div.innerHTML = html;
 }

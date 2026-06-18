@@ -1029,7 +1029,7 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
     // 디버깅: 각 몬스터별 계산 과정 로그
     console.log(`[${ally.name}] 턴=${targetTurnOrder}, 목표틱=${estimatedTi}, 게이지=${bonus}%, minSpeed=${minSpeed}, 기본공속기여=${baseContrib.toFixed(2)}, minRune=${minRune}`);
 
-    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune };
+    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune, arti: ally.arti };
   });
 
   // 렌더
@@ -1039,6 +1039,7 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
       <th>몬스터</th>
       <th>목표 틱</th>
       <th>게이지 보너스</th>
+      <th>아티 속버프%</th>
       <th>필요 최저 뒷속</th>
     </tr></thead><tbody>`;
 
@@ -1047,6 +1048,7 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
       <td style="font-weight:600">${r.name}</td>
       <td style="color:var(--sub)">${r.Ti}틱</td>
       <td style="color:var(--sub)">${r.bonus > 0 ? '+'+r.bonus+'%' : '-'}</td>
+      <td style="color:var(--sub)">${r.arti !== undefined ? r.arti + '%' : '-'}</td>
       <td><span class="min-rune-val">${r.minRune}</span></td>
     </tr>`;
   });

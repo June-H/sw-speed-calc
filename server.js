@@ -16,6 +16,8 @@ app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/test', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
 app.get('/index', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/mulciri', (req, res) => res.sendFile(path.join(__dirname, 'mulciri.html')));
+app.get('/mulmuhee', (req, res) => res.sendFile(path.join(__dirname, 'mulmuhee.html')));
 
 app.use(express.static(path.join(__dirname)));
 

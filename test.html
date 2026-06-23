@@ -860,6 +860,22 @@ function calculate() {
     ally.speedBuff = calcBuff(ally.speed, ally.arti);
   }
 
+  // 속도 순서 검증: 2순위는 반드시 3순위보다 빨라야 함
+  if (sortedAllies[1] && sortedAllies[2]) {
+    if (sortedAllies[1].speed <= sortedAllies[2].speed) {
+      const ally2 = sortedAllies[1];
+      const requiredSpeed = sortedAllies[2].speed + 1;
+      const mult2 = 1 + ldr/100 + tot/100;
+      const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
+      const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
+      const baseContrib2 = ally2.base * mult2 + swRaw2 - swCeil2;
+      const fixedRune = Math.max(0, Math.ceil(requiredSpeed - baseContrib2));
+      ally2.rune = fixedRune;
+      ally2.speed = calcSpeed(ally2.base, fixedRune, ally2.swift, ldr, tot);
+      ally2.speedBuff = calcBuff(ally2.speed, ally2.arti);
+    }
+  }
+
   // ★ 필요 최저 뒷속 요약
   calcMinRuneSummary(allies, tr, ldr, tot, enemySpd);
 
@@ -1046,8 +1062,26 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
     // 디버깅: 각 몬스터별 계산 과정 로그
     console.log(`[${ally.name}] 턴=${targetTurnOrder}, 목표틱=${estimatedTi}, 게이지=${bonus}%, minSpeed=${minSpeed}, 기본공속기여=${baseContrib.toFixed(2)}, minRune=${minRune}`);
 
-    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune, arti: ally.arti };
+    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune, arti: ally.arti, base: ally.base, swift: ally.swift };
   });
+
+  // 속도 순서 검증: 2순위(rows[0])는 반드시 3순위(rows[1])보다 빨라야 함
+  if (rows.length >= 2) {
+    const mult = 1 + ldr/100 + tot/100;
+    const speed2 = calcSpeed(sortedByTurn[1].base, rows[0].minRune, sortedByTurn[1].swift, ldr, tot);
+    const speed3 = calcSpeed(sortedByTurn[2].base, rows[1].minRune, sortedByTurn[2].swift, ldr, tot);
+    if (speed2 <= speed3) {
+      const ally2 = sortedByTurn[1];
+      const requiredSpeed = speed3 + 1;
+      const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
+      const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
+      const baseContrib2 = ally2.base * mult + swRaw2 - swCeil2;
+      const fixedRune = Math.max(0, Math.ceil(requiredSpeed - baseContrib2));
+      rows[0].minRune = fixedRune;
+      rows[0].minSpeed = requiredSpeed;
+      console.log(`[순서보정] ${ally2.name} 뒷속 ${rows[0].minRune}으로 상향 (${speed3}+1 기준)`);
+    }
+  }
 
   // 렌더
   const div = document.getElementById('min-rune-summary');

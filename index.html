@@ -865,15 +865,22 @@ function calculate() {
     const ally2 = sortedAllies[1];
     const ally3 = sortedAllies[2];
     const bonus2 = savedBonus[0] || 0;
-    const bonus3 = savedBonus[1] || 0;
+    // bonus3는 2순위 목표틱 이전에 3순위가 받는 게이지만 포함해야 함
+    // 2순위가 주는 게이지는 2순위 턴 이후에 적용되므로 제외 (1순위에서 받는 것만)
+    let bonus3ForOrdering = 0;
+    if (sortedAllies[0]) {
+      const lead = sortedAllies[0];
+      const getsGauge = lead.gTgt === 'all' || parseInt(lead.gTgt) === ally3.idx;
+      if (getsGauge && lead.gAmt > 0) bonus3ForOrdering = lead.gAmt;
+    }
     const targetTick2 = savedTargetTick[0] || (firstTick + 1);
 
     const gauge2 = ally2.speed * targetTick2 * tr + bonus2;
-    const gauge3 = ally3.speed * targetTick2 * tr + bonus3;
+    const gauge3 = ally3.speed * targetTick2 * tr + bonus3ForOrdering;
 
     if (gauge2 <= gauge3) {
       // 2순위가 3순위보다 먼저 턴을 가져가려면 필요한 최소 합속
-      const requiredSpeed = Math.floor((ally3.speed * targetTick2 * tr + bonus3 - bonus2) / (targetTick2 * tr)) + 1;
+      const requiredSpeed = Math.floor((ally3.speed * targetTick2 * tr + bonus3ForOrdering - bonus2) / (targetTick2 * tr)) + 1;
       const mult2 = 1 + ldr/100 + tot/100;
       const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
       const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
@@ -1082,21 +1089,27 @@ function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
     const speed2 = calcSpeed(ally2.base, rows[0].minRune, ally2.swift, ldr, tot);
     const speed3 = calcSpeed(ally3.base, rows[1].minRune, ally3.swift, ldr, tot);
     const bonus2 = rows[0].bonus;
-    const bonus3 = rows[1].bonus;
+    // bonus3는 2순위 목표틱 이전에 3순위가 받는 게이지만 포함해야 함
+    // 2순위가 주는 게이지는 2순위 턴 이후에 적용되므로 제외 (1순위에서 받는 것만)
+    let bonus3ForOrdering = 0;
+    if (lead) {
+      const getsGauge = lead.gTgt === 'all' || parseInt(lead.gTgt) === ally3.idx;
+      if (getsGauge && lead.gAmt > 0) bonus3ForOrdering = lead.gAmt;
+    }
     const targetTick2 = rows[0].Ti; // 2순위 목표 틱
 
     const gauge2 = speed2 * targetTick2 * TR + bonus2;
-    const gauge3 = speed3 * targetTick2 * TR + bonus3;
+    const gauge3 = speed3 * targetTick2 * TR + bonus3ForOrdering;
 
     if (gauge2 <= gauge3) {
-      const requiredSpeed = Math.floor((speed3 * targetTick2 * TR + bonus3 - bonus2) / (targetTick2 * TR)) + 1;
+      const requiredSpeed = Math.floor((speed3 * targetTick2 * TR + bonus3ForOrdering - bonus2) / (targetTick2 * TR)) + 1;
       const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
       const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
       const baseContrib2 = ally2.base * mult + swRaw2 - swCeil2;
       const fixedRune = Math.max(0, Math.ceil(requiredSpeed - baseContrib2));
       rows[0].minRune = fixedRune;
       rows[0].minSpeed = requiredSpeed;
-      console.log(`[순서보정] ${ally2.name} 뒷속 ${rows[0].minRune}으로 상향 (게이지 기반, bonus2=${bonus2} bonus3=${bonus3})`);
+      console.log(`[순서보정] ${ally2.name} 뒷속 ${rows[0].minRune}으로 상향 (게이지 기반, bonus2=${bonus2} bonus3ForOrdering=${bonus3ForOrdering})`);
     }
   }
 

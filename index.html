@@ -689,285 +689,112 @@ function getEnemySpeed() {
   return calcSpeed(base, rune, swift, ldr, tot);
 }
 
-// Simulation: one turn per tick model
-function simulate(allies, enemySpd, tickRate, maxTicks) {
-  const entities = [
-    ...allies.map(m => ({ ...m, curSpd: m.speed, hasBuff: false })),
-    { idx: allies.length, name: '상대 선턴잡이', isAlly: false, speed: enemySpd, curSpd: enemySpd, speedBuff: enemySpd, hasBuff: false, gAmt: 0, gTgt: 'none', sTgt: 'none' }
-  ];
-  let gauges = entities.map(() => 0);
-  const events = [];
-
-  for (let tick = 1; tick <= maxTicks; tick++) {
-    for (let i = 0; i < entities.length; i++) gauges[i] += entities[i].curSpd * tickRate;
-
-    // Find one entity: highest gauge ≥ 100, ties → ally first
-    let best = -1, bestG = 99.9999;
-    for (let i = 0; i < entities.length; i++) {
-      if (gauges[i] < 100) continue;
-      if (gauges[i] > bestG + 1e-6 ||
-          (Math.abs(gauges[i] - bestG) < 1e-6 && entities[i].isAlly && (best < 0 || !entities[best].isAlly))) {
-        best = i; bestG = gauges[i];
-      }
-    }
-    if (best < 0) continue;
-
-    const e = entities[best];
-    gauges[best] -= 100;
-    const effects = [];
-
-    if (e.isAlly) {
-      // Gauge buff
-      if (e.gAmt > 0 && e.gTgt !== 'none') {
-        const tgts = resolveTgts(e.gTgt, entities, best, true);
-        tgts.forEach(j => { gauges[j] += e.gAmt; effects.push(`${entities[j].name} +${e.gAmt}%`); });
-      }
-      // Speed buff
-      if (e.sTgt !== 'none') {
-        const tgts = resolveTgts(e.sTgt, entities, best, true);
-        tgts.forEach(j => {
-          if (!entities[j].hasBuff) {
-            entities[j].hasBuff = true;
-            entities[j].curSpd = entities[j].speedBuff;
-            effects.push(`${entities[j].name} 속버프(${entities[j].speedBuff})`);
-          }
-        });
-      }
-    }
-
-    events.push({ tick, entity: e, gaugeAfter: gauges[best], gaugesSnap: [...gauges], effects });
-  }
-  return events;
-}
-
-function resolveTgts(tgt, entities, selfIdx, alliesOnly) {
-  if (tgt === 'all') return entities.map((_,i)=>i).filter(i => i !== selfIdx && (!alliesOnly || entities[i].isAlly));
-  const n = parseInt(tgt);
-  return (!isNaN(n) && n < 3 && n !== selfIdx) ? [n] : [];
-}
-
-// Min 뒷속 analysis
-// Formula: ally_speed × tickRate × T + totalBonus > enemy_speed × tickRate × T
-// => ally_speed > enemy_speed - totalBonus / (tickRate × T)
-// Also need ally_speed × tickRate × T + totalBonus > 100 (to actually reach 100%)
-function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, tot) {
-  const tr = tickRate;
-  const needFromGauge = (enemySpd * tr * targetTick - totalBonus) / (tr * targetTick);
-  const needFor100 = (100 - totalBonus) / (tr * targetTick);
-  const needSpeed = Math.max(needFromGauge, needFor100);
-  if (needSpeed <= 0) return { minSpeed: 0, minRune: 0, possible: true, free: true };
-
-  const mult = 1 + ldr/100 + tot/100;
-  const swRaw = ally.swift ? ally.base * 0.25 : 0;
-  const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
-  // speed = ceil(base*mult + runeDisp - swCeil + swRaw)
-  //       = ceil(base*mult + swRaw - swCeil + runeDisp)
-  const baseContrib = ally.base * mult + swRaw - swCeil;
-  // ceil(baseContrib + runeDisp) > needSpeed
-  // baseContrib + runeDisp >= needSpeed (since ceil, borderline case)
-  const minRuneRaw = needSpeed - baseContrib;
-  const minRune = Math.max(0, Math.ceil(minRuneRaw));
-  const achievedSpeed = calcSpeed(ally.base, minRune, ally.swift, ldr, tot);
-
-  return { minSpeed: Math.ceil(needSpeed), minRune, achievedSpeed };
-}
-
-function calculate() {
+// ── 계산하기 ──────────────────────────────
+async function calculate() {
   const allies = getMonsters();
-
-  // useEnemySpec에 따라 enemySpd 결정
-  let enemySpd;
-  if (useEnemySpec) {
-    enemySpd = getEnemySpeed();
-  } else {
-    // 기본값: 1순위 몬스터의 공속과 동일 (2번 케이스)
-    const firstAlly = allies.find(a => a.turn === 1);
-    enemySpd = firstAlly.speed;
-  }
-
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
-  const tr = TICK_RATE[mode];
 
-  // ★ 턴 순서 기반 공속 자동 계산
-  // 턴 순서대로 정렬된 배열 생성
-  const sortedAllies = [...allies].sort((a, b) => a.turn - b.turn);
+  let enemySpec = null;
+  if (useEnemySpec) {
+    if (eMode === 'direct') {
+      enemySpec = { direct: true, speed: +document.getElementById('e-spd').value || 0 };
+    } else {
+      enemySpec = {
+        direct: false,
+        base:  +document.getElementById('e-base').value  || 0,
+        rune:  +document.getElementById('e-rune').value  || 0,
+        swift: document.getElementById('e-swift').checked,
+        ldr:   +document.getElementById('e-leader').value || 0,
+        tot:   +document.getElementById('e-totem').value  || 0,
+      };
+    }
+  }
 
-  // 1순위 몬스터 (첫 턴)
-  const first = sortedAllies[0];
+  const payload = { mode, ldr, tot, useEnemySpec, enemySpec, monsters: allies };
 
-  // 3번 케이스: 아군 1순위 < 상대 검사
-  if (useEnemySpec && first.speed < enemySpd) {
+  let result;
+  try {
+    const res = await fetch('/api/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    result = await res.json();
+  } catch (e) {
+    alert('계산 중 오류가 발생했습니다.');
+    return;
+  }
+
+  if (result.warning === 'slower-first') {
     document.getElementById('results').classList.add('hidden');
     document.getElementById('warning-slower-first').classList.remove('hidden');
     return;
-  } else {
-    document.getElementById('warning-slower-first').classList.add('hidden');
-    document.getElementById('results').classList.remove('hidden');
   }
 
-  // 2, 3순위 몬스터 공속 자동 계산
-  // 1순위 몬스터의 첫 턴 틱과 속버프 여부 확인
-  const firstTick = Math.ceil(100 / (first.speed * tr));
-  const lead1stGivesSpeedBuff = first.sTgt === 'all';
+  document.getElementById('warning-slower-first').classList.add('hidden');
+  document.getElementById('results').classList.remove('hidden');
 
-  const savedBonus = [];      // 각 순위별 게이지 보너스 저장
-  const savedTargetTick = []; // 각 순위별 목표 틱 저장
+  const tr = result.tr;
 
-  for (let turnIdx = 1; turnIdx < 3; turnIdx++) {
-    const ally = sortedAllies[turnIdx];
-    if (!ally) continue;
+  // ── 필요 최저 뒷속 요약 렌더 ──
+  const summaryDiv = document.getElementById('min-rune-summary');
+  let html = `<table class="min-rune-table">
+    <thead><tr>
+      <th>몬스터</th><th>목표 틱</th><th>게이지 보너스</th><th>아티 속버프%</th><th>필요 최저 뒷속</th>
+    </tr></thead><tbody>`;
+  result.minRuneSummary.forEach(r => {
+    html += `<tr>
+      <td style="font-weight:600">${r.name}</td>
+      <td style="color:var(--sub)">${r.Ti}틱</td>
+      <td style="color:var(--sub)">${r.bonus > 0 ? '+'+r.bonus+'%' : '-'}</td>
+      <td style="color:var(--sub)">${r.arti !== undefined ? r.arti+'%' : '-'}</td>
+      <td><span class="min-rune-val">${r.minRune}</span></td>
+    </tr>`;
+  });
+  html += `</tbody></table>
+    <p class="min-rune-note">
+      📌 기준: <strong>${result.leadName}</strong> (${result.T1}틱) 기준으로 계산.
+      각 몬스터가 설정한 턴 순서대로 턴을 잡기 위한 최소 뒷속입니다.
+    </p>`;
+  summaryDiv.innerHTML = html;
 
-    // 이전 턴 몬스터들의 게이지 보너스 계산
-    let totalBonus = 0;
-    for (let i = 0; i < turnIdx; i++) {
-      const prev = sortedAllies[i];
-      if (!prev) continue;
-      const getsGauge = prev.gTgt === 'all' || parseInt(prev.gTgt) === ally.idx;
-      if (getsGauge && prev.gAmt > 0) totalBonus += prev.gAmt;
-    }
-
-    // 목표 턴 소요 틱 (1순위 턴 + turnIdx개 턴 추가)
-    const targetTick = firstTick + turnIdx;
-    savedBonus.push(totalBonus);
-    savedTargetTick.push(targetTick);
-
-    // 이 몬스터가 속버프를 받는지 확인
-    const getsSpeedBuff = lead1stGivesSpeedBuff && (first.sTgt === 'all' || parseInt(first.sTgt) === ally.idx);
-
-    // 필요 공속 계산 (부분적 속버프 고려)
-    let needSpeed;
-    if (getsSpeedBuff && firstTick > 1) {
-      const buffMul = calcBuff(ally.speed, ally.arti) / ally.speed;
-      const noBuffTicks = firstTick;
-      const buffTicks = targetTick - firstTick;
-      const numerator = enemySpd * targetTick - totalBonus / tr;
-      const denominator = noBuffTicks + buffMul * buffTicks;
-      needSpeed = Math.ceil(numerator / denominator);
-    } else {
-      needSpeed = Math.ceil(enemySpd - totalBonus / (tr * targetTick));
-    }
-
-    // 공속에서 역으로 뒷속 계산
-    const mult = 1 + ldr/100 + tot/100;
-    const swRaw = ally.swift ? ally.base * 0.25 : 0;
-    const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
-    const baseContrib = ally.base * mult + swRaw - swCeil;
-    const needRune = Math.max(0, Math.ceil(needSpeed - baseContrib));
-
-    ally.rune = needRune;
-    ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot);
-    ally.speedBuff = calcBuff(ally.speed, ally.arti);
-  }
-
-  // 게이지 기반 순서 검증: 2순위 목표틱에서 2순위 게이지 > 3순위 게이지
-  if (sortedAllies[1] && sortedAllies[2]) {
-    const ally2 = sortedAllies[1];
-    const ally3 = sortedAllies[2];
-    const bonus2 = savedBonus[0] || 0;
-    // bonus3는 2순위 목표틱 이전에 3순위가 받는 게이지만 포함해야 함
-    // 2순위가 주는 게이지는 2순위 턴 이후에 적용되므로 제외 (1순위에서 받는 것만)
-    let bonus3ForOrdering = 0;
-    if (sortedAllies[0]) {
-      const lead = sortedAllies[0];
-      const getsGauge = lead.gTgt === 'all' || parseInt(lead.gTgt) === ally3.idx;
-      if (getsGauge && lead.gAmt > 0) bonus3ForOrdering = lead.gAmt;
-    }
-    const targetTick2 = savedTargetTick[0] || (firstTick + 1);
-
-    const gauge2 = ally2.speed * targetTick2 * tr + bonus2;
-    const gauge3 = ally3.speed * targetTick2 * tr + bonus3ForOrdering;
-
-    if (gauge2 <= gauge3) {
-      // 2순위가 3순위보다 먼저 턴을 가져가려면 필요한 최소 합속
-      const requiredSpeed = Math.floor((ally3.speed * targetTick2 * tr + bonus3ForOrdering - bonus2) / (targetTick2 * tr)) + 1;
-      const mult2 = 1 + ldr/100 + tot/100;
-      const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
-      const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
-      const baseContrib2 = ally2.base * mult2 + swRaw2 - swCeil2;
-      const fixedRune = Math.max(0, Math.ceil(requiredSpeed - baseContrib2));
-      ally2.rune = fixedRune;
-      ally2.speed = calcSpeed(ally2.base, fixedRune, ally2.swift, ldr, tot);
-      ally2.speedBuff = calcBuff(ally2.speed, ally2.arti);
-    }
-  }
-
-  // ★ 필요 최저 뒷속 요약
-  calcMinRuneSummary(allies, tr, ldr, tot, enemySpd);
-
-  // Stat table
+  // ── 스탯 테이블 렌더 ──
   const sb = document.getElementById('stat-body');
-  sb.innerHTML = `<tr>
-    <td><span class="tag tg-enemy">상대</span> 선턴잡이</td>
-    <td class="val">${enemySpd}</td>
-    <td>${(enemySpd*tr).toFixed(2)}%</td>
-    <td>${Math.ceil(100/(enemySpd*tr))}틱</td>
-    <td>-</td>
-  </tr>` + allies.map(m => `<tr>
-    <td><span class="tag tg-ally">아군</span> ${m.name}</td>
+  sb.innerHTML = result.statTable.map(m => `<tr>
+    <td><span class="tag ${m.isAlly ? 'tg-ally' : 'tg-enemy'}">${m.isAlly ? '아군' : '상대'}</span> ${m.name}</td>
     <td class="val">${m.speed}</td>
-    <td>${(m.speed*tr).toFixed(2)}%</td>
-    <td>${Math.ceil(100/(m.speed*tr))}틱</td>
-    <td class="val">${m.speedBuff}</td>
+    <td>${m.trPct}%</td>
+    <td>${m.firstTick}틱</td>
+    <td ${m.isAlly ? `class="val"` : ''}>${m.speedBuff !== null ? m.speedBuff : '-'}</td>
   </tr>`).join('');
 
-  // Simulate
-  const events = simulate(allies, enemySpd, tr, 30);
-
-  // Timeline
+  // ── 턴 순서 시뮬레이션 렌더 ──
   const tl = document.getElementById('timeline');
   tl.innerHTML = '';
-  events.forEach(ev => {
+  result.timeline.forEach(ev => {
     const div = document.createElement('div');
     div.className = 't-row';
     const effHtml = ev.effects.length ? `<span class="t-eff"> → ${ev.effects.join(', ')}</span>` : '';
     div.innerHTML = `
       <span class="t-tick">${ev.tick}틱</span>
-      <div class="t-ev ${ev.entity.isAlly?'ally':'enemy'}">
-        <span style="font-weight:600;color:${ev.entity.isAlly?'var(--green)':'var(--red)'}">${ev.entity.name}</span>
-        <span class="t-g">(잔여 ${ev.gaugeAfter.toFixed(1)}%)</span>
+      <div class="t-ev ${ev.isAlly ? 'ally' : 'enemy'}">
+        <span style="font-weight:600;color:${ev.isAlly ? 'var(--green)' : 'var(--red)'}">${ev.name}</span>
+        <span class="t-g">(잔여 ${ev.gaugeAfter}%)</span>
         ${effHtml}
       </div>`;
     tl.appendChild(div);
   });
 
-  // Analysis
+  // ── 중턴 분석 렌더 ──
   const an = document.getElementById('analysis');
   an.innerHTML = '';
-
-  // Find when each ally's gauge-giver takes their turn
-  const allyTurnTicks = {};
-  events.forEach(ev => {
-    if (ev.entity.isAlly && !(ev.entity.name in allyTurnTicks)) {
-      allyTurnTicks[ev.entity.name] = ev.tick;
-    }
-  });
-
-  allies.forEach(ally => {
-    // Compute cumulative gauge bonus ally receives from others
-    const getBonusAt = (targetTick) => {
-      let bonus = 0;
-      allies.forEach(other => {
-        if (other.idx === ally.idx) return;
-        const tgtMatch = other.gTgt === 'all' || parseInt(other.gTgt) === ally.idx;
-        if (tgtMatch && other.gAmt > 0) {
-          const giverTick = allyTurnTicks[other.name];
-          if (giverTick && giverTick < targetTick) bonus += other.gAmt;
-        }
-      });
-      return bonus;
-    };
-
+  result.analysis.forEach(allyData => {
     const div = document.createElement('div');
     div.className = 'an-block';
-
-    const enemyFirstTick = Math.ceil(100 / (enemySpd * tr));
-    // Try ticks 1 through 10 for 중턴
     let rows = '';
-    for (let T = 1; T <= 10; T++) {
-      const bonus = getBonusAt(T);
-      const res = minRuneAnalysis(ally, bonus, enemySpd, T, tr, ldr, tot);
-      if (res.free) {
+    allyData.ticks.forEach(({ T, bonus, free, minSpeed, minRune, currentSpeed }) => {
+      if (free) {
         rows += `<div class="an-row">
           <span>${T}틱 중턴</span>
           <span style="color:var(--sub)">보너스 +${bonus}%</span>
@@ -975,17 +802,16 @@ function calculate() {
           <span class="tag tg-ok">✓ 달성</span>
         </div>`;
       } else {
-        const ok = ally.speed >= res.minSpeed;
+        const ok = currentSpeed >= minSpeed;
         rows += `<div class="an-row">
           <span>${T}틱 중턴</span>
           <span style="color:var(--sub)">보너스 +${bonus}%</span>
-          <span>필요 합속 <span class="val">${res.minSpeed}</span> / 뒷속 <span class="val">${res.minRune}</span></span>
-          ${ok ? `<span class="tag tg-ok">✓ 현재 ${ally.speed} 충족</span>` : `<span class="tag tg-fail">✗ 현재 ${ally.speed} 부족</span>`}
+          <span>필요 합속 <span class="val">${minSpeed}</span> / 뒷속 <span class="val">${minRune}</span></span>
+          ${ok ? `<span class="tag tg-ok">✓ 현재 ${currentSpeed} 충족</span>` : `<span class="tag tg-fail">✗ 현재 ${currentSpeed} 부족</span>`}
         </div>`;
       }
-    }
-
-    div.innerHTML = `<div class="an-name">${ally.name}</div>${rows}`;
+    });
+    div.innerHTML = `<div class="an-name">${allyData.name}</div>${rows}`;
     an.appendChild(div);
   });
 
@@ -994,156 +820,15 @@ function calculate() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      mode,
-      leader_pct: ldr,
-      totem_pct: tot,
-      enemy_speed: enemySpd,
-      monsters: allies.map(({ name, base, rune, swift, arti, speed }) => ({ name, base, rune, swift, arti, speed })),
+      mode, leader_pct: ldr, totem_pct: tot, enemy_speed: result.enemySpd,
+      monsters: result.updatedMonsters,
     }),
   }).catch(() => {});
 }
 
-// ── 필요 최저 뒷속 요약 ──────────────────────────────
-function calcMinRuneSummary(allies, tickRate, ldr, tot, enemySpd) {
-  // 턴 순서대로 정렬
-  const sortedByTurn = [...allies].sort((a,b) => a.turn - b.turn);
-  const lead = sortedByTurn[0];
-  const others = sortedByTurn.slice(1);
-  const TR = tickRate;
-
-  if(others.length === 0) {
-    document.getElementById('min-rune-summary').innerHTML = '<p style="color:var(--sub);font-size:0.83rem">아군 몬스터가 2마리 이상 필요합니다.</p>';
-    return;
-  }
-
-  // 현재 설정으로 시뮬 실행해서 각 아군의 첫 턴 틱 파악
-  const simEvents = simulate(allies, enemySpd, TR, 100);
-  const allyFirstTurns = {};
-  simEvents.forEach(ev => {
-    if (ev.entity.isAlly && !(ev.entity.name in allyFirstTurns)) {
-      allyFirstTurns[ev.entity.name] = ev.tick;
-    }
-  });
-
-  const T1 = allyFirstTurns[lead.name] || Math.ceil(100 / (lead.speed * TR));
-  const lead1stGivesSpeedBuff = lead.sTgt === 'all';
-
-  // 각 2~3순위 몬스터에 대해 필요 공속 계산
-  const rows = others.map((ally, idx) => {
-    const targetTurnOrder = ally.turn; // 사용자가 설정한 턴 순서
-
-    // 목표: 이 몬스터가 정확히 targetTurnOrder번째 턴을 잡아야 함
-    // 다른 선턴 개수 계산: 이 몬스터보다 turn이 작은 아군 개수
-    const priorTurns = allies.filter(m => m.turn < targetTurnOrder).length;
-
-    // 추정 목표 틱: lead의 turn이 T1이면, priorTurns번째 몬스터는 대략 T1 + priorTurns틱
-    // (실제로는 게이지 보너스와 속버프에 따라 다르지만, 역산의 시작점)
-    const estimatedTi = T1 + priorTurns;
-
-    // 이 몬스터가 받는 게이지 보너스
-    const bonus = allies.reduce((sum, other) => {
-      if(other.idx === ally.idx) return sum;
-      const tgtMatch = other.gTgt === 'all' || parseInt(other.gTgt) === ally.idx;
-      if(tgtMatch && other.gAmt > 0) {
-        const otherFirstTurn = allyFirstTurns[other.name] || Math.ceil(100 / (other.speed * TR));
-        if(otherFirstTurn < estimatedTi) return sum + other.gAmt;
-      }
-      return sum;
-    }, 0);
-
-    // 이 몬스터가 속버프를 받는지 확인
-    const getsSpeedBuff = lead1stGivesSpeedBuff && (lead.sTgt === 'all' || parseInt(lead.sTgt) === ally.idx);
-    const buffMul = getsSpeedBuff ? calcBuff(ally.speed, ally.arti) / ally.speed : 1;
-
-    // 필요 공속 역산 (부분적 속버프 고려)
-    let minSpeed;
-    if (getsSpeedBuff && T1 > 1) {
-      // 속버프를 받는 경우: 1~T1틱은 속버프 없음, (T1+1)~estimatedTi틱은 속버프 있음
-      const noBuffTicks = T1;
-      const buffTicks = estimatedTi - T1;
-      const numerator = enemySpd * estimatedTi - bonus / TR;
-      const denominator = noBuffTicks + buffMul * buffTicks;
-      minSpeed = Math.ceil(numerator / denominator);
-    } else {
-      // 속버프를 받지 않으면 원래 로직
-      minSpeed = Math.ceil(enemySpd - bonus / (TR * estimatedTi));
-    }
-
-    const mult = 1 + ldr/100 + tot/100;
-    const swRaw  = ally.swift ? ally.base * 0.25 : 0;
-    const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
-    const baseContrib = ally.base * mult + swRaw - swCeil;  // calculate()와 동일하게 ceil() 하지 않음
-    const minRune = Math.max(0, Math.ceil(minSpeed - baseContrib));
-
-    // 디버깅: 각 몬스터별 계산 과정 로그
-    console.log(`[${ally.name}] 턴=${targetTurnOrder}, 목표틱=${estimatedTi}, 게이지=${bonus}%, minSpeed=${minSpeed}, 기본공속기여=${baseContrib.toFixed(2)}, minRune=${minRune}`);
-
-    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, curRune: ally.rune, arti: ally.arti, base: ally.base, swift: ally.swift };
-  });
-
-  // 게이지 기반 순서 검증: 2순위 목표틱에서 2순위 게이지 > 3순위 게이지
-  if (rows.length >= 2) {
-    const mult = 1 + ldr/100 + tot/100;
-    const ally2 = sortedByTurn[1];
-    const ally3 = sortedByTurn[2];
-    const speed2 = calcSpeed(ally2.base, rows[0].minRune, ally2.swift, ldr, tot);
-    const speed3 = calcSpeed(ally3.base, rows[1].minRune, ally3.swift, ldr, tot);
-    const bonus2 = rows[0].bonus;
-    // bonus3는 2순위 목표틱 이전에 3순위가 받는 게이지만 포함해야 함
-    // 2순위가 주는 게이지는 2순위 턴 이후에 적용되므로 제외 (1순위에서 받는 것만)
-    let bonus3ForOrdering = 0;
-    if (lead) {
-      const getsGauge = lead.gTgt === 'all' || parseInt(lead.gTgt) === ally3.idx;
-      if (getsGauge && lead.gAmt > 0) bonus3ForOrdering = lead.gAmt;
-    }
-    const targetTick2 = rows[0].Ti; // 2순위 목표 틱
-
-    const gauge2 = speed2 * targetTick2 * TR + bonus2;
-    const gauge3 = speed3 * targetTick2 * TR + bonus3ForOrdering;
-
-    if (gauge2 <= gauge3) {
-      const requiredSpeed = Math.floor((speed3 * targetTick2 * TR + bonus3ForOrdering - bonus2) / (targetTick2 * TR)) + 1;
-      const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
-      const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
-      const baseContrib2 = ally2.base * mult + swRaw2 - swCeil2;
-      const fixedRune = Math.max(0, Math.ceil(requiredSpeed - baseContrib2));
-      rows[0].minRune = fixedRune;
-      rows[0].minSpeed = requiredSpeed;
-      console.log(`[순서보정] ${ally2.name} 뒷속 ${rows[0].minRune}으로 상향 (게이지 기반, bonus2=${bonus2} bonus3ForOrdering=${bonus3ForOrdering})`);
-    }
-  }
-
-  // 렌더
-  const div = document.getElementById('min-rune-summary');
-  let html = `<table class="min-rune-table">
-    <thead><tr>
-      <th>몬스터</th>
-      <th>목표 틱</th>
-      <th>게이지 보너스</th>
-      <th>아티 속버프%</th>
-      <th>필요 최저 뒷속</th>
-    </tr></thead><tbody>`;
-
-  rows.forEach(r => {
-    html += `<tr>
-      <td style="font-weight:600">${r.name}</td>
-      <td style="color:var(--sub)">${r.Ti}틱</td>
-      <td style="color:var(--sub)">${r.bonus > 0 ? '+'+r.bonus+'%' : '-'}</td>
-      <td style="color:var(--sub)">${r.arti !== undefined ? r.arti + '%' : '-'}</td>
-      <td><span class="min-rune-val">${r.minRune}</span></td>
-    </tr>`;
-  });
-
-  html += `</tbody></table>
-    <p class="min-rune-note">
-      📌 기준: <strong>${lead.name}</strong> (${T1}틱) 기준으로 계산.
-      각 몬스터가 설정한 턴 순서대로 턴을 잡기 위한 최소 뒷속입니다.
-    </p>`;
-  div.innerHTML = html;
-}
-
 // Init
 renderMonsters();
+
 </script>
 </body>
 </html>

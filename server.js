@@ -13,11 +13,11 @@ const pool = new Pool({
 app.use(express.json());
 
 // ─── 라우트 (static 파일보다 먼저 정의) ────────────────────────────────────────────────────
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/td-spd-cal', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/mulciri-dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'mulciri.html')));
+app.get('/mulmuhee-dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'mulmuhee.html')));
 app.get('/test', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
-app.get('/index', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-app.get('/mulciri', (req, res) => res.sendFile(path.join(__dirname, 'mulciri.html')));
-app.get('/mulmuhee', (req, res) => res.sendFile(path.join(__dirname, 'mulmuhee.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.use(express.static(path.join(__dirname)));
 
@@ -123,12 +123,13 @@ function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, 
   const needSpeed = Math.max(needFromGauge, needFor100);
   if (needSpeed <= 0) return { minSpeed: 0, minRune: 0, free: true };
 
+  const extra = PRESETS_EXTRA[ally.name] || 0;
   const mult = 1 + ldr/100 + tot/100;
   const swRaw = ally.swift ? ally.base * 0.25 : 0;
   const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
   const baseContrib = ally.base * mult + swRaw - swCeil;
-  const minRune = Math.max(0, Math.ceil(needSpeed - baseContrib));
-  const achievedSpeed = calcSpeed(ally.base, minRune, ally.swift, ldr, tot);
+  const minRune = Math.max(0, Math.ceil(needSpeed - extra - baseContrib));
+  const achievedSpeed = calcSpeed(ally.base, minRune, ally.swift, ldr, tot) + extra;
 
   return { minSpeed: Math.ceil(needSpeed), minRune, achievedSpeed };
 }
@@ -197,14 +198,15 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
       needSpeed = Math.ceil(enemySpd - totalBonus / (tr * targetTick));
     }
 
+    const extra = PRESETS_EXTRA[ally.name] || 0;
     const mult = 1 + ldr/100 + tot/100;
     const swRaw = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
     const baseContrib = ally.base * mult + swRaw - swCeil;
-    const needRune = Math.max(0, Math.ceil(needSpeed - baseContrib));
+    const needRune = Math.max(0, Math.ceil(needSpeed - extra - baseContrib));
 
     ally.rune = needRune;
-    ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot);
+    ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot) + extra;
     ally.speedBuff = calcBuff(ally.speed, ally.arti);
   }
 
@@ -225,13 +227,14 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
 
     if (gauge2 <= gauge3) {
       const requiredSpeed = Math.floor((ally3.speed * targetTick2 * tr + bonus3ForOrdering - bonus2) / (targetTick2 * tr)) + 1;
+      const extra2 = PRESETS_EXTRA[ally2.name] || 0;
       const mult2 = 1 + ldr/100 + tot/100;
       const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
       const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
       const baseContrib2 = ally2.base * mult2 + swRaw2 - swCeil2;
-      const fixedRune = Math.max(0, Math.ceil(requiredSpeed - baseContrib2));
+      const fixedRune = Math.max(0, Math.ceil(requiredSpeed - extra2 - baseContrib2));
       ally2.rune = fixedRune;
-      ally2.speed = calcSpeed(ally2.base, fixedRune, ally2.swift, ldr, tot);
+      ally2.speed = calcSpeed(ally2.base, fixedRune, ally2.swift, ldr, tot) + extra2;
       ally2.speedBuff = calcBuff(ally2.speed, ally2.arti);
     }
   }
@@ -276,11 +279,12 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
       minSpeed = Math.ceil(enemySpd - bonus / (tr * estimatedTi));
     }
 
+    const extra = PRESETS_EXTRA[ally.name] || 0;
     const mult = 1 + ldr/100 + tot/100;
     const swRaw = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
     const baseContrib = ally.base * mult + swRaw - swCeil;
-    let minRune = Math.max(0, Math.ceil(minSpeed - baseContrib));
+    let minRune = Math.max(0, Math.ceil(minSpeed - extra - baseContrib));
 
     return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, arti: ally.arti };
   });
@@ -289,8 +293,8 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
   if (minRuneSummary.length >= 2) {
     const mult = 1 + ldr/100 + tot/100;
     const a2 = sortedByTurn[1], a3 = sortedByTurn[2];
-    const s2 = calcSpeed(a2.base, minRuneSummary[0].minRune, a2.swift, ldr, tot);
-    const s3 = calcSpeed(a3.base, minRuneSummary[1].minRune, a3.swift, ldr, tot);
+    const s2 = calcSpeed(a2.base, minRuneSummary[0].minRune, a2.swift, ldr, tot) + (PRESETS_EXTRA[a2.name] || 0);
+    const s3 = calcSpeed(a3.base, minRuneSummary[1].minRune, a3.swift, ldr, tot) + (PRESETS_EXTRA[a3.name] || 0);
     const b2 = minRuneSummary[0].bonus;
     let b3ord = 0;
     const getsGaugeLead = lead.gTgt === 'all' || parseInt(lead.gTgt) === a3.idx;
@@ -300,10 +304,11 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     const g3 = s3 * tTick2 * tr + b3ord;
     if (g2 <= g3) {
       const reqSpd = Math.floor((s3 * tTick2 * tr + b3ord - b2) / (tTick2 * tr)) + 1;
+      const extra2sum = PRESETS_EXTRA[a2.name] || 0;
       const swRaw2 = a2.swift ? a2.base * 0.25 : 0;
       const swCeil2 = a2.swift ? Math.ceil(swRaw2) : 0;
       const bc2 = a2.base * mult + swRaw2 - swCeil2;
-      minRuneSummary[0].minRune = Math.max(0, Math.ceil(reqSpd - bc2));
+      minRuneSummary[0].minRune = Math.max(0, Math.ceil(reqSpd - extra2sum - bc2));
       minRuneSummary[0].minSpeed = reqSpd;
     }
   }

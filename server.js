@@ -19,6 +19,10 @@ app.get('/mulmuhee-dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'mu
 app.get('/test', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
 app.get('/', (req, res) => res.status(404).send('Not Found'));
 
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html')) return res.status(404).send('Not Found');
+  next();
+});
 app.use(express.static(path.join(__dirname)));
 
 // ─── DB 초기화 ────────────────────────────────────────────────

@@ -457,7 +457,8 @@ function copyFastestAlly() {
     const base  = +document.getElementById(`bs-${i}`).value || 0;
     const rune  = +document.getElementById(`rn-${i}`).value || 0;
     const swift = document.getElementById(`sw-${i}`).checked;
-    return { base, rune, swift, speed: calcSpeed(base, rune, swift, ldr, tot) };
+    const noLeader = document.getElementById(`nl-${i}`).checked;
+    return { base, rune, swift, speed: calcSpeed(base, rune, swift, noLeader ? 0 : ldr, tot) };
   });
   const fastest = allies.reduce((a,b) => a.speed >= b.speed ? a : b);
 
@@ -540,6 +541,11 @@ function renderMonsters() {
     <div class="m-row">
       <span class="m-lbl">신속 세트</span>
       <input type="checkbox" id="sw-${i}" ${d.swift?'checked':''}>
+    </div>
+    <div class="m-row">
+      <span class="m-lbl">리더 효과 X</span>
+      <input type="checkbox" id="nl-${i}">
+      <span style="font-size:0.75rem;color:var(--sub);margin-left:8px">(속성이 달라 리더 효과를 못 받음)</span>
     </div>
     <div class="m-row">
       <span class="m-lbl">아티 속버프%</span>
@@ -653,13 +659,14 @@ function getMonsters() {
     const base  = +document.getElementById(`bs-${i}`).value || 0;
     const rune  = +document.getElementById(`rn-${i}`).value || 0;
     const swift = document.getElementById(`sw-${i}`).checked;
+    const noLeader = document.getElementById(`nl-${i}`).checked;
     const arti  = +document.getElementById(`at-${i}`).value || 0;
     const name  = document.getElementById(`nm-${i}`).value || `몬${i+1}`;
     const gAmt  = +document.getElementById(`ga-${i}`).value || 0;
     const gTgt  = document.getElementById(`gt-${i}`).value;
     const sTgt  = document.getElementById(`st-${i}`).value;
     const turn  = turns[i];
-    let speed = calcSpeed(base, rune, swift, ldr, tot);
+    let speed = calcSpeed(base, rune, swift, noLeader ? 0 : ldr, tot);
 
     // 특정 몬스터에 대한 예외 규칙 적용 (예: 물호박 의보 공속)
     const presetName = Object.keys(PRESETS).find(k => {
@@ -674,7 +681,7 @@ function getMonsters() {
     }
 
     const speedBuff = calcBuff(speed, arti);
-    return { idx:i, name, base, rune, swift, arti, speed, speedBuff, gAmt, gTgt, sTgt, turn, isAlly:true };
+    return { idx:i, name, base, rune, swift, noLeader, arti, speed, speedBuff, gAmt, gTgt, sTgt, turn, isAlly:true };
   });
 }
 

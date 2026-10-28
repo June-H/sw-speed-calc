@@ -140,10 +140,13 @@ function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, 
 
 function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
   const tr = TICK_RATE[mode] || TICK_RATE.siege;
+  // 속성이 달라 리더 효과를 받지 못하는 몬스터는 리더% 0으로 계산
+  const ldrOf = m => (m.noLeader ? 0 : ldr);
+
 
   // 몬스터 speed 계산
   const allies = monsters.map(m => {
-    let speed = calcSpeed(m.base, m.rune, m.swift, ldr, tot);
+    let speed = calcSpeed(m.base, m.rune, m.swift, ldrOf(m), tot);
     if (PRESETS_EXTRA[m.name]) speed += PRESETS_EXTRA[m.name];
     const speedBuff = calcBuff(speed, m.arti);
     return { ...m, speed, speedBuff, isAlly: true };
@@ -203,14 +206,14 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     }
 
     const extra = PRESETS_EXTRA[ally.name] || 0;
-    const mult = 1 + ldr/100 + tot/100;
+    const mult = 1 + ldrOf(ally)/100 + tot/100;
     const swRaw = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
     const baseContrib = ally.base * mult + swRaw - swCeil;
     const needRune = Math.max(0, Math.ceil(needSpeed - extra - baseContrib));
 
     ally.rune = needRune;
-    ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldr, tot) + extra;
+    ally.speed = calcSpeed(ally.base, needRune, ally.swift, ldrOf(ally), tot) + extra;
     ally.speedBuff = calcBuff(ally.speed, ally.arti);
   }
 
@@ -232,13 +235,13 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     if (gauge2 <= gauge3) {
       const requiredSpeed = Math.floor((ally3.speed * targetTick2 * tr + bonus3ForOrdering - bonus2) / (targetTick2 * tr)) + 1;
       const extra2 = PRESETS_EXTRA[ally2.name] || 0;
-      const mult2 = 1 + ldr/100 + tot/100;
+      const mult2 = 1 + ldrOf(ally2)/100 + tot/100;
       const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
       const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
       const baseContrib2 = ally2.base * mult2 + swRaw2 - swCeil2;
       const fixedRune = Math.max(0, Math.ceil(requiredSpeed - extra2 - baseContrib2));
       ally2.rune = fixedRune;
-      ally2.speed = calcSpeed(ally2.base, fixedRune, ally2.swift, ldr, tot) + extra2;
+      ally2.speed = calcSpeed(ally2.base, fixedRune, ally2.swift, ldrOf(ally2), tot) + extra2;
       ally2.speedBuff = calcBuff(ally2.speed, ally2.arti);
     }
   }
@@ -284,7 +287,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     }
 
     const extra = PRESETS_EXTRA[ally.name] || 0;
-    const mult = 1 + ldr/100 + tot/100;
+    const mult = 1 + ldrOf(ally)/100 + tot/100;
     const swRaw = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
     const baseContrib = ally.base * mult + swRaw - swCeil;
@@ -295,10 +298,10 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
 
   // 순서 검증 (summary)
   if (minRuneSummary.length >= 2) {
-    const mult = 1 + ldr/100 + tot/100;
     const a2 = sortedByTurn[1], a3 = sortedByTurn[2];
-    const s2 = calcSpeed(a2.base, minRuneSummary[0].minRune, a2.swift, ldr, tot) + (PRESETS_EXTRA[a2.name] || 0);
-    const s3 = calcSpeed(a3.base, minRuneSummary[1].minRune, a3.swift, ldr, tot) + (PRESETS_EXTRA[a3.name] || 0);
+    const mult = 1 + ldrOf(a2)/100 + tot/100;
+    const s2 = calcSpeed(a2.base, minRuneSummary[0].minRune, a2.swift, ldrOf(a2), tot) + (PRESETS_EXTRA[a2.name] || 0);
+    const s3 = calcSpeed(a3.base, minRuneSummary[1].minRune, a3.swift, ldrOf(a3), tot) + (PRESETS_EXTRA[a3.name] || 0);
     const b2 = minRuneSummary[0].bonus;
     let b3ord = 0;
     const getsGaugeLead = lead.gTgt === 'all' || parseInt(lead.gTgt) === a3.idx;
@@ -367,7 +370,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     const ticks = [];
     for (let T = 1; T <= 10; T++) {
       const bonus = getBonusAt(T);
-      const res = minRuneAnalysis(ally, bonus, enemySpd, T, tr, ldr, tot);
+      const res = minRuneAnalysis(ally, bonus, enemySpd, T, tr, ldrOf(ally), tot);
       ticks.push({ T, bonus, ...res, currentSpeed: ally.speed });
     }
     return { name: ally.name, ticks };

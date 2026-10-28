@@ -1316,6 +1316,8 @@ renderMonsters();
 renderRecommended();
 renderFavs();
 loadDeckFromUrl();
+// 이미 이 페이지가 열린 탭에 공유 링크를 붙여 넣으면 새로고침 없이 # 뒤만 바뀌므로 따로 처리
+window.addEventListener('hashchange', loadDeckFromUrl);
 
 </script>
 </body>

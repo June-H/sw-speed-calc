@@ -7,9 +7,9 @@
 <style>
 :root {
   --bg: #0d1117; --card: #161b22; --card2: #1c2128;
-  --accent: #7c6ff7; --accent2: #58a6ff;
-  --text: #e6edf3; --sub: #7d8590;
-  --border: #30363d; --green: #3fb950; --yellow: #d29922; --red: #f85149;
+  --accent: #7c6ff7; --accent2: #58a6ff; --accent-strong: #6758d1;
+  --text: #e6edf3; --sub: #929ba7;
+  --border: #30363d; --line: #626d78; --green: #3fb950; --yellow: #d29922; --red: #f85149;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 16px; min-height: 100vh; }
@@ -24,18 +24,18 @@ h1 { text-align: center; font-size: 1.5rem; padding: 12px 0 20px; background: li
   input[type=number], input[type=text], select { font-size: 16px; padding: 7px 8px; }
   input[type=checkbox] { width: 22px; height: 22px; }
   .m-row, .row { flex-wrap: wrap; }
-  .help { width: 22px; height: 22px; line-height: 20px; font-size: 0.75rem; }
+  .help { width: 22px; height: 22px; line-height: 20px; font-size: 0.8125rem; }
   .ex-chip, .fav-chip button { padding: 6px 12px; }
   .seg button { padding: 9px 12px; }
 }
 
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
-.card-title { font-size: 0.82rem; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+.card-title { font-size: 0.875rem; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
 
 .row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-.lbl { font-size: 0.83rem; color: var(--sub); min-width: 110px; }
+.lbl { font-size: 0.875rem; color: var(--sub); min-width: 110px; }
 input[type=number], input[type=text], select {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
   color: var(--text); padding: 5px 8px; font-size: 0.85rem; outline: none;
   transition: border-color .2s;
 }
@@ -43,69 +43,70 @@ input[type=number]:focus, input[type=text]:focus, select:focus { border-color: v
 input[type=number] { width: 80px; }
 input[type=text] { width: 120px; }
 input.invalid { border-color: var(--red); background: rgba(248,81,73,0.08); }
-input[type=checkbox] { width:15px; height:15px; accent-color: var(--accent); cursor:pointer; }
+label.lbl, label.m-lbl { cursor:pointer; }
+input[type=checkbox] { width:18px; height:18px; accent-color: var(--accent); cursor:pointer; }
 
-.seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .seg button {
   flex: 1; background: transparent; border: none; color: var(--sub);
-  padding: 5px 10px; font-size: 0.82rem; cursor: pointer; transition: all .2s;
+  padding: 5px 10px; font-size: 0.875rem; cursor: pointer; transition: all .2s;
 }
-.seg button.on { background: var(--accent); color: #fff; }
+.seg button.on { background: var(--accent-strong); color: #fff; }
 
 .monster-block { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
-.monster-block h3 { font-size: 0.8rem; color: var(--accent2); margin-bottom: 10px; font-weight: 600; }
+.monster-block h3 { font-size: 0.875rem; color: var(--accent2); margin-bottom: 10px; font-weight: 600; }
 .m-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-.m-lbl { font-size: 0.78rem; color: var(--sub); min-width: 90px; }
+.m-lbl { font-size: 0.8125rem; color: var(--sub); min-width: 90px; }
 .m-row input[type=number] { width: 70px; }
 .m-row select { width: 140px; }
 
 .skill-box { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
-.skill-title { font-size: 0.72rem; color: var(--sub); margin-bottom: 6px; }
-.skill-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.78rem; flex-wrap: wrap; }
-.skill-row select { width: auto; max-width: 190px; font-size: 0.76rem; padding: 3px 5px; }
-.skill-row input[type=number] { width: 55px; font-size: 0.76rem; padding: 3px 5px; }
+.skill-title { font-size: 0.8125rem; color: var(--sub); margin-bottom: 6px; }
+.skill-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.8125rem; flex-wrap: wrap; }
+.skill-row select { width: auto; max-width: 190px; font-size: 0.8125rem; padding: 3px 5px; }
+.skill-row input[type=number] { width: 55px; font-size: 0.8125rem; padding: 3px 5px; }
 
 .calc-btn {
-  width: 100%; padding: 11px; background: var(--accent); color: #fff;
+  width: 100%; padding: 11px; background: var(--accent-strong); color: #fff;
   border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
   cursor: pointer; transition: opacity .2s; margin-top: 4px;
 }
 .calc-btn:hover { opacity: .85; }
 
-.help { width:16px; height:16px; border-radius:50%; border:1px solid var(--border); background:transparent; color:var(--sub); font-size:0.65rem; line-height:14px; padding:0; cursor:pointer; vertical-align:middle; }
+.help { width:18px; height:18px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--sub); font-size:0.75rem; line-height:16px; padding:0; cursor:pointer; vertical-align:middle; }
 .help:hover { border-color:var(--accent); color:var(--text); }
-.help-text { font-size:0.76rem; color:var(--text); background:rgba(124,111,247,.08); border-left:2px solid var(--accent); border-radius:6px; padding:6px 10px; margin:-2px 0 8px; line-height:1.5; }
+.help-text { font-size:0.8125rem; color:var(--text); background:rgba(124,111,247,.08); border-left:2px solid var(--accent); border-radius:6px; padding:6px 10px; margin:-2px 0 8px; line-height:1.5; }
 .cmp-wrap { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
 @media(max-width:600px){ .cmp-wrap { grid-template-columns:1fr; } }
-.cmp-card { border:1px solid var(--border); border-radius:8px; padding:10px 12px; background:var(--card2); font-size:0.8rem; }
+.cmp-card { border:1px solid var(--border); border-radius:8px; padding:10px 12px; background:var(--card2); font-size:0.875rem; }
 .cmp-card.current { border-color:var(--accent); }
-.cmp-title { font-size:0.74rem; color:var(--sub); margin-bottom:4px; }
+.cmp-title { font-size:0.8125rem; color:var(--sub); margin-bottom:4px; }
 .cmp-order { font-weight:600; margin-bottom:6px; }
 .cmp-row { display:flex; justify-content:space-between; padding:2px 0; color:var(--sub); }
 .cmp-row b { color:var(--accent2); }
 .cmp-total { border-top:1px solid var(--border); margin-top:4px; padding-top:5px; color:var(--text); }
-.cmp-warn { color:var(--red); font-size:0.74rem; margin-top:4px; }
+.cmp-warn { color:var(--red); font-size:0.8125rem; margin-top:4px; }
 .ex-opts { display:inline-flex; gap:4px; flex-wrap:wrap; margin-left:6px; }
-.ex-chip { background:transparent; border:1px solid var(--border); color:var(--sub); border-radius:999px; padding:2px 8px; font-size:0.72rem; cursor:pointer; }
+.ex-chip { background:transparent; border:1px solid var(--line); color:var(--sub); border-radius:999px; padding:2px 8px; font-size:0.8125rem; cursor:pointer; }
 .ex-chip.on { border-color:var(--accent); color:var(--text); background:rgba(124,111,247,.15); }
-.mini-btn {background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 12px; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+.mini-btn {background:var(--card2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:5px 12px; font-size:0.875rem; cursor:pointer; white-space:nowrap; }
 .mini-btn:hover { border-color:var(--accent); }
 .fav-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
 .fav-chip { display:inline-flex; border:1px solid var(--yellow); border-radius:999px; overflow:hidden; }
-.fav-chip button { background:transparent; border:none; color:var(--text); font-size:0.78rem; padding:4px 10px; cursor:pointer; }
+.fav-chip button { background:transparent; border:none; color:var(--text); font-size:0.8125rem; padding:4px 10px; cursor:pointer; }
 .fav-chip .fav-load:hover { background:rgba(210,153,34,.15); }
 .fav-chip .fav-del { color:var(--sub); padding:4px 8px; border-left:1px solid var(--border); }
 .fav-chip .fav-del:hover { color:var(--red); }
 
 /* Results */
 .hidden { display: none; }
-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 th { background: var(--card2); padding: 7px 10px; text-align: left; color: var(--sub); font-weight: 500; border-bottom: 1px solid var(--border); }
 td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
 tr:last-child td { border-bottom: none; }
 
 .val { color: var(--accent2); font-weight: 600; }
-.tag { display:inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+.tag { display:inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.8125rem; font-weight: 600; }
 .tg-ally { background: rgba(63,185,80,.15); color: var(--green); }
 .tg-enemy { background: rgba(248,81,73,.15); color: var(--red); }
 .tg-ok { background: rgba(63,185,80,.15); color: var(--green); }
@@ -113,18 +114,18 @@ tr:last-child td { border-bottom: none; }
 .tg-info { background: rgba(124,111,247,.15); color: var(--accent); }
 
 .timeline { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
-.t-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; font-size: 0.8rem; }
+.t-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; font-size: 0.875rem; }
 .t-row:hover { background: var(--card2); }
-.t-tick { color: var(--sub); min-width: 32px; font-size: 0.72rem; }
+.t-tick { color: var(--sub); min-width: 32px; font-size: 0.8125rem; }
 .t-ev { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 4px; background: var(--card2); border-left: 3px solid; }
 .t-ev.ally { border-color: var(--green); }
 .t-ev.enemy { border-color: var(--red); }
-.t-eff { font-size: 0.72rem; color: var(--yellow); }
-.t-g { font-size: 0.7rem; color: var(--sub); }
+.t-eff { font-size: 0.8125rem; color: var(--yellow); }
+.t-g { font-size: 0.8125rem; color: var(--sub); }
 
 .an-block { margin-bottom: 16px; }
-.an-name { font-size: 0.82rem; color: var(--yellow); font-weight: 600; margin-bottom: 8px; }
-.an-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; flex-wrap: wrap; gap: 6px; }
+.an-name { font-size: 0.875rem; color: var(--yellow); font-weight: 600; margin-bottom: 8px; }
+.an-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; flex-wrap: wrap; gap: 6px; }
 .an-row:last-child { border-bottom: none; }
 
 /* 필요 최저 뒷속 요약 */
@@ -133,15 +134,15 @@ tr:last-child td { border-bottom: none; }
 .min-rune-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
 .min-rune-table tr:last-child td { border-bottom:none; }
 .min-rune-val { font-size:1.1rem; font-weight:700; color:var(--accent2); }
-.min-rune-ok  { color:var(--green); font-size:0.75rem; font-weight:600; }
-.min-rune-fail{ color:var(--red);   font-size:0.75rem; font-weight:600; }
+.min-rune-ok  { color:var(--green); font-size:0.8125rem; font-weight:600; }
+.min-rune-fail{ color:var(--red);   font-size:0.8125rem; font-weight:600; }
 .sum-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
-.sum-chip { font-size:0.76rem; color:var(--sub); padding:4px 10px; border-radius:999px; background:var(--card2); border:1px solid var(--border); }
+.sum-chip { font-size:0.8125rem; color:var(--sub); padding:4px 10px; border-radius:999px; background:var(--card2); border:1px solid var(--border); }
 .sum-chip b { color:var(--text); }
 .sum-chip.ok { border-color:var(--green); color:var(--green); }
 .sum-chip.warn { border-color:var(--yellow); color:var(--yellow); }
 .sum-chip.fail { border-color:var(--red); color:var(--red); }
-.min-rune-note{ font-size:0.74rem; color:var(--sub); margin-top:8px; padding:6px 10px; background:rgba(88,166,255,0.05); border-radius:6px; border:1px solid var(--border); }
+.min-rune-note{ font-size:0.8125rem; color:var(--sub); margin-top:8px; padding:6px 10px; background:rgba(88,166,255,0.05); border-radius:6px; border:1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -188,12 +189,12 @@ tr:last-child td { border-bottom: none; }
 
   <!-- 상대 선턴잡이 토글 버튼 -->
   <button id="btn-toggle-enemy" onclick="toggleEnemySpec()"
-          style="width:100%;padding:11px;background:var(--card2);color:var(--sub);border:1px solid var(--border);border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:5px;"
+          style="width:100%;padding:11px;background:var(--card2);color:var(--sub);border:1px solid var(--line);border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:5px;"
           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--sub)'">
+          onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--sub)'">
     📋 상대 선턴잡이 스펙 입력하기
   </button>
-  <p style="margin:0 0 12px 0;color:var(--sub);font-size:0.82rem;text-align:center;">
+  <p style="margin:0 0 12px 0;color:var(--sub);font-size:0.875rem;text-align:center;">
     (상대 선턴잡이 스펙 미입력 시 자동으로 아군 1순위(선턴)몹 기준 계산)
   </p>
 
@@ -208,7 +209,7 @@ tr:last-child td { border-bottom: none; }
       </div>
     </div>
     <div class="row">
-      <button onclick="copyFastestAlly()" style="background:var(--card2);border:1px solid var(--border);color:var(--sub);border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--sub)'">
+      <button onclick="copyFastestAlly()" style="background:var(--card2);border:1px solid var(--line);color:var(--sub);border-radius:6px;padding:5px 12px;font-size:0.8125rem;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--sub)'">
         📋 아군 가장 빠른 몬스터로 자동 입력
       </button>
     </div>
@@ -221,11 +222,11 @@ tr:last-child td { border-bottom: none; }
     <div id="e-calc">
       <div class="row"><span class="lbl">기본공속</span><input type="number" id="e-base" value="115" min="1"></div>
       <div class="row"><span class="lbl">뒷속</span><input type="number" id="e-rune" value="240" min="0"></div>
-      <div class="row"><span class="lbl">신속 세트</span><input type="checkbox" id="e-swift" checked></div>
+      <div class="row"><label class="lbl" for="e-swift">신속 세트</label><input type="checkbox" id="e-swift" checked></div>
       <div class="row">
         <span class="lbl">상대 리더 공속</span>
         <input type="number" id="e-leader" value="28" min="0" max="60"> %
-        <span style="font-size:0.74rem;color:var(--sub)">(아군과 다를 수 있음)</span>
+        <span style="font-size:0.8125rem;color:var(--sub)">(아군과 다를 수 있음)</span>
       </div>
       <div class="row">
         <span class="lbl">상대 토템 공속</span>
@@ -588,7 +589,7 @@ function renderMonsters() {
       <input type="text" id="ps-${i}" list="preset-list" placeholder="🔍 몬스터 검색 (예: 호박)" style="width:170px"
              oninput="if (PRESETS[this.value]) applyPreset(${i}, this.value)">
     </div>
-    <div id="notes-${i}" style="font-size:0.75rem;color:var(--sub);margin:8px 0;padding:6px 8px;background:rgba(88,166,255,0.05);border-radius:6px;border-left:2px solid var(--accent);display:none"></div>
+    <div id="notes-${i}" style="font-size:0.8125rem;color:var(--sub);margin:8px 0;padding:6px 8px;background:rgba(88,166,255,0.05);border-radius:6px;border-left:2px solid var(--accent);display:none"></div>
     <div class="m-row">
       <span class="m-lbl">이름</span>
       <input type="text" id="nm-${i}" value="${d.name}" style="width:110px" oninput="refreshTargetLabels()">
@@ -602,7 +603,7 @@ function renderMonsters() {
       <input type="number" id="rn-${i}" value="${d.rune}" min="0" ${d.turn!==1?'disabled':''} placeholder="자동 계산">
     </div>
     <div class="m-row">
-      <span class="m-lbl">신속 세트 <button type="button" class="help" data-help="swift" aria-label="도움말">?</button></span>
+      <label class="m-lbl" for="sw-${i}">신속 세트 <button type="button" class="help" data-help="swift" aria-label="도움말">?</button></label>
       <input type="checkbox" id="sw-${i}" ${d.swift?'checked':''}>
     </div>
     <div class="m-row">
@@ -611,9 +612,9 @@ function renderMonsters() {
       <span id="exo-${i}" class="ex-opts"></span>
     </div>
     <div class="m-row">
-      <span class="m-lbl">리더 효과 X <button type="button" class="help" data-help="noLeader" aria-label="도움말">?</button></span>
+      <label class="m-lbl" for="nl-${i}">리더 효과 X <button type="button" class="help" data-help="noLeader" aria-label="도움말">?</button></label>
       <input type="checkbox" id="nl-${i}">
-      <span style="font-size:0.75rem;color:var(--sub);margin-left:8px">(속성이 달라 리더 효과를 못 받음)</span>
+      <label for="nl-${i}" style="font-size:0.8125rem;color:var(--sub);margin-left:8px;cursor:pointer">(속성이 달라 리더 효과를 못 받음)</label>
     </div>
     <div class="m-row">
       <span class="m-lbl">아티 속버프% <button type="button" class="help" data-help="arti" aria-label="도움말">?</button></span>
@@ -698,7 +699,7 @@ function updateTurnOrder() {
       rn.disabled = true;
       if (!rn.nextElementSibling || rn.nextElementSibling.tagName !== 'SPAN') {
         const span = document.createElement('span');
-        span.style.cssText = 'font-size:0.75rem;color:var(--sub);margin-left:8px';
+        span.style.cssText = 'font-size:0.8125rem;color:var(--sub);margin-left:8px';
         span.textContent = '(턴 순서 1순위가 아닐 경우 자동 계산)';
         rn.parentNode.appendChild(span);
       }
@@ -733,7 +734,7 @@ function renderExtraOptions(idx) {
   const p = PRESETS[document.getElementById(`nm-${idx}`).value];
   const opts = (p && p.extraOptions) || [];
   if (!opts.length) {
-    box.innerHTML = '<span style="font-size:0.75rem;color:var(--sub)">(물호박 의보 등 특수 보정)</span>';
+    box.innerHTML = '<span style="font-size:0.8125rem;color:var(--sub)">(물호박 의보 등 특수 보정)</span>';
     return;
   }
   const cur = +document.getElementById(`ex-${idx}`).value;
@@ -824,7 +825,7 @@ function renderFavs() {
         <button class="fav-load" onclick="setFormState(loadFavs()[${i}])"></button>
         <button class="fav-del" onclick="deleteFav(${i})" title="삭제">×</button>
       </span>`).join('')
-    : `<span style="font-size:0.76rem;color:var(--sub)">저장된 덱이 없습니다. 덱을 입력한 뒤 저장해 보세요.</span>`;
+    : `<span style="font-size:0.8125rem;color:var(--sub)">저장된 덱이 없습니다. 덱을 입력한 뒤 저장해 보세요.</span>`;
   // 사용자가 입력한 이름은 textContent로 넣음
   list.querySelectorAll('.fav-load').forEach((b, i) => {
     b.textContent = `${favs[i].label} (${favs[i].mode === 'arena' ? '실레나' : '점령전'})`;
@@ -1148,7 +1149,7 @@ async function renderOrderCompare(payload, result) {
 async function showSpeedTable() {
   if (!validateInputs()) return;
   const box = document.getElementById('speed-table');
-  box.innerHTML = '<span style="font-size:0.78rem;color:var(--sub)">계산 중...</span>';
+  box.innerHTML = '<span style="font-size:0.8125rem;color:var(--sub)">계산 중...</span>';
   let data;
   try {
     const res = await fetch('/api/speed-table', {
@@ -1159,7 +1160,7 @@ async function showSpeedTable() {
     data = await res.json();
     if (data.error) throw new Error(data.error);
   } catch (e) {
-    box.innerHTML = `<span style="font-size:0.78rem;color:var(--red)">공속계산표를 불러오지 못했습니다.</span>`;
+    box.innerHTML = `<span style="font-size:0.8125rem;color:var(--red)">공속계산표를 불러오지 못했습니다.</span>`;
     return;
   }
 
@@ -1173,7 +1174,7 @@ async function showSpeedTable() {
       return;
     }
     html += `<tr${cur}>
-      <td style="font-weight:600">${r.leadRune}${r.orderBroken ? ' <span style="color:var(--red);font-size:0.72rem">⚠ 순서 불가</span>' : ''}</td>
+      <td style="font-weight:600">${r.leadRune}${r.orderBroken ? ' <span style="color:var(--red);font-size:0.8125rem">⚠ 순서 불가</span>' : ''}</td>
       <td>${r.leadSpeed}</td>
       <td style="color:var(--sub)">${r.T1}틱</td>
       ${r.others.map(o => `<td><span class="min-rune-val" style="font-size:0.95rem">${o.minRune}</span></td>`).join('')}

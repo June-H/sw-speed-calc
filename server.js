@@ -80,6 +80,8 @@ function simulate(allies, enemySpd, tickRate, maxTicks) {
   ];
   let gauges = entities.map(() => 0);
   const events = [];
+  // 게이지 동률이면 아군 먼저, 아군끼리는 지정한 턴 순서대로
+  const winsTie = (a, b) => a.isAlly && (!b.isAlly || a.turn < b.turn);
 
   for (let tick = 1; tick <= maxTicks; tick++) {
     for (let i = 0; i < entities.length; i++) gauges[i] += entities[i].curSpd * tickRate;
@@ -88,14 +90,14 @@ function simulate(allies, enemySpd, tickRate, maxTicks) {
     for (let i = 0; i < entities.length; i++) {
       if (gauges[i] < 100) continue;
       if (gauges[i] > bestG + 1e-6 ||
-          (Math.abs(gauges[i] - bestG) < 1e-6 && entities[i].isAlly && (best < 0 || !entities[best].isAlly))) {
+          (Math.abs(gauges[i] - bestG) < 1e-6 && best >= 0 && winsTie(entities[i], entities[best]))) {
         best = i; bestG = gauges[i];
       }
     }
     if (best < 0) continue;
 
     const e = entities[best];
-    gauges[best] -= 100;
+    gauges[best] = 0;
     const effects = [];
 
     if (e.isAlly) {
@@ -118,6 +120,12 @@ function simulate(allies, enemySpd, tickRate, maxTicks) {
     events.push({ tick, entity: e, gaugeAfter: gauges[best], effects });
   }
   return events;
+}
+
+// T틱 시점의 게이지 (1순위의 속버프는 T1틱 행동 이후부터 적용)
+function gaugeAt(speed, arti, buffed, T1, T, bonus, tr) {
+  const buffTicks = buffed ? Math.max(0, T - T1) : 0;
+  return speed * tr * (T - buffTicks) + calcBuff(speed, arti) * tr * buffTicks + bonus;
 }
 
 function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, tot) {
@@ -172,7 +180,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
   }
 
   const firstTick = Math.ceil(100 / (first.speed * tr));
-  const lead1stGivesSpeedBuff = first.sTgt === 'all';
+  const lead1stGivesSpeedBuff = first.sTgt !== 'none';
   const savedBonus = [];
   const savedTargetTick = [];
 
@@ -229,19 +237,17 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
       if (getsGauge && lead.gAmt > 0) bonus3ForOrdering = lead.gAmt;
     }
     const targetTick2 = savedTargetTick[0] || (firstTick + 1);
-    const gauge2 = ally2.speed * targetTick2 * tr + bonus2;
-    const gauge3 = ally3.speed * targetTick2 * tr + bonus3ForOrdering;
+    const buffedByLead = a => lead1stGivesSpeedBuff && (first.sTgt === 'all' || parseInt(first.sTgt) === a.idx);
+    const gauge3 = gaugeAt(ally3.speed, ally3.arti, buffedByLead(ally3), firstTick, targetTick2, bonus3ForOrdering, tr);
 
-    if (gauge2 <= gauge3) {
-      const requiredSpeed = Math.floor((ally3.speed * targetTick2 * tr + bonus3ForOrdering - bonus2) / (targetTick2 * tr)) + 1;
-      const extra2 = PRESETS_EXTRA[ally2.name] || 0;
-      const mult2 = 1 + ldrOf(ally2)/100 + tot/100;
-      const swRaw2 = ally2.swift ? ally2.base * 0.25 : 0;
-      const swCeil2 = ally2.swift ? Math.ceil(swRaw2) : 0;
-      const baseContrib2 = ally2.base * mult2 + swRaw2 - swCeil2;
-      const fixedRune = Math.max(0, Math.ceil(requiredSpeed - extra2 - baseContrib2));
+    // 동률이면 턴 순서대로 움직이므로 2순위는 3순위와 같기만 하면 됨
+    const extra2 = PRESETS_EXTRA[ally2.name] || 0;
+    const speed2Of = r => calcSpeed(ally2.base, r, ally2.swift, ldrOf(ally2), tot) + extra2;
+    let fixedRune = ally2.rune;
+    while (gaugeAt(speed2Of(fixedRune), ally2.arti, buffedByLead(ally2), firstTick, targetTick2, bonus2, tr) < gauge3 - 1e-6) fixedRune++;
+    if (fixedRune !== ally2.rune) {
       ally2.rune = fixedRune;
-      ally2.speed = calcSpeed(ally2.base, fixedRune, ally2.swift, ldrOf(ally2), tot) + extra2;
+      ally2.speed = speed2Of(fixedRune);
       ally2.speedBuff = calcBuff(ally2.speed, ally2.arti);
     }
   }
@@ -258,7 +264,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     }
   });
   const T1 = allyFirstTurns[lead.name] || Math.ceil(100 / (lead.speed * tr));
-  const lead1stGivesSpeedBuffSummary = lead.sTgt === 'all';
+  const lead1stGivesSpeedBuffSummary = lead.sTgt !== 'none';
 
   const minRuneSummary = others.map(ally => {
     const priorTurns = allies.filter(m => m.turn < ally.turn).length;
@@ -299,26 +305,29 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
   // 순서 검증 (summary)
   if (minRuneSummary.length >= 2) {
     const a2 = sortedByTurn[1], a3 = sortedByTurn[2];
-    const mult = 1 + ldrOf(a2)/100 + tot/100;
-    const s2 = calcSpeed(a2.base, minRuneSummary[0].minRune, a2.swift, ldrOf(a2), tot) + (PRESETS_EXTRA[a2.name] || 0);
-    const s3 = calcSpeed(a3.base, minRuneSummary[1].minRune, a3.swift, ldrOf(a3), tot) + (PRESETS_EXTRA[a3.name] || 0);
+    const speedOf = (a, r) => calcSpeed(a.base, r, a.swift, ldrOf(a), tot) + (PRESETS_EXTRA[a.name] || 0);
+    const buffedByLead = a => lead1stGivesSpeedBuffSummary && (lead.sTgt === 'all' || parseInt(lead.sTgt) === a.idx);
     const b2 = minRuneSummary[0].bonus;
     let b3ord = 0;
     const getsGaugeLead = lead.gTgt === 'all' || parseInt(lead.gTgt) === a3.idx;
     if (getsGaugeLead && lead.gAmt > 0) b3ord = lead.gAmt;
     const tTick2 = minRuneSummary[0].Ti;
-    const g2 = s2 * tTick2 * tr + b2;
-    const g3 = s3 * tTick2 * tr + b3ord;
-    if (g2 <= g3) {
-      const reqSpd = Math.floor((s3 * tTick2 * tr + b3ord - b2) / (tTick2 * tr)) + 1;
-      const extra2sum = PRESETS_EXTRA[a2.name] || 0;
-      const swRaw2 = a2.swift ? a2.base * 0.25 : 0;
-      const swCeil2 = a2.swift ? Math.ceil(swRaw2) : 0;
-      const bc2 = a2.base * mult + swRaw2 - swCeil2;
-      minRuneSummary[0].minRune = Math.max(0, Math.ceil(reqSpd - extra2sum - bc2));
-      minRuneSummary[0].minSpeed = reqSpd;
+    const g3 = gaugeAt(speedOf(a3, minRuneSummary[1].minRune), a3.arti, buffedByLead(a3), T1, tTick2, b3ord, tr);
+
+    // 동률이면 턴 순서대로 움직이므로 2순위는 3순위와 같기만 하면 됨
+    let rune2 = minRuneSummary[0].minRune;
+    while (gaugeAt(speedOf(a2, rune2), a2.arti, buffedByLead(a2), T1, tTick2, b2, tr) < g3 - 1e-6) rune2++;
+    if (rune2 !== minRuneSummary[0].minRune) {
+      minRuneSummary[0].minRune = rune2;
+      minRuneSummary[0].minSpeed = speedOf(a2, rune2);
     }
   }
+
+  // 지정한 턴 순서(아군 1→2→3→상대)대로 첫 턴을 잡는지 검증
+  const actualOrder = [];
+  simForSummary.forEach(ev => { if (!actualOrder.includes(ev.entity.name)) actualOrder.push(ev.entity.name); });
+  const expectedOrder = [...sortedByTurn.map(a => a.name), '상대 선턴잡이'];
+  const orderBroken = expectedOrder.some((name, i) => actualOrder[i] !== name);
 
   // 시뮬레이션
   const events = simulate(allies, enemySpd, tr, 30);
@@ -383,6 +392,8 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
 
   return {
     warning: null,
+    orderBroken,
+    actualOrder: actualOrder.slice(0, expectedOrder.length),
     enemySpd,
     minRuneSummary,
     statTable,

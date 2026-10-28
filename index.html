@@ -97,8 +97,6 @@ input[type=checkbox] { width:18px; height:18px; accent-color: var(--accent); cur
 .fav-chip .fav-load:hover { background:rgba(210,153,34,.15); }
 .fav-chip .fav-del { color:var(--sub); padding:4px 8px; border-left:1px solid var(--border); }
 .fav-chip .fav-del:hover { color:var(--red); }
-.fav-chip.rec { border-color:var(--accent2); }
-.fav-chip.rec .fav-load:hover { background:rgba(88,166,255,.15); }
 .fav-note { font-size:0.8125rem; color:var(--sub); line-height:1.5; }
 .fav-note b { color:var(--text); font-weight:600; }
 .arti-step { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
@@ -164,10 +162,9 @@ tr:last-child td { border-bottom: none; }
   <!-- 즐겨찾기 덱 -->
   <div class="card">
     <div class="card-title">⭐ 즐겨찾기 덱</div>
-    <div class="fav-note" style="margin-bottom:6px">📌 추천 덱 <span style="font-size:0.75rem">(빈칸은 직접 골라 주세요)</span></div>
-    <div id="rec-list" class="fav-list"></div>
-    <div class="fav-note" style="margin-bottom:6px">⭐ 내 덱 <span style="font-size:0.75rem">(이 브라우저에 저장됨)</span></div>
+    <div id="fav-title" class="fav-note" style="margin-bottom:6px">⭐ 내 덱 <span style="font-size:0.75rem">(이 브라우저에 저장됨)</span></div>
     <div id="fav-list" class="fav-list"></div>
+    <div id="fav-toggle"></div>
     <div class="row" style="margin-bottom:0">
       <input type="text" id="fav-name" maxlength="40" placeholder="덱 이름 (비우면 몬스터 이름)" style="flex:1;min-width:0">
       <button class="mini-btn" onclick="saveFav()">☆ 현재 덱 저장</button>
@@ -809,7 +806,9 @@ function showPresetNotes(idx, p) {
 
 // ── 즐겨찾기 덱 (이 브라우저에만 저장) ──────────────
 const FAV_KEY = 'spdcalc_favorites';
-const FAV_MAX = 50;  // server.js의 FAV_MAX와 같게 유지
+const FAV_EXPANDED_KEY = 'spdcalc_fav_expanded';
+const FAV_MAX = 100;  // server.js의 FAV_MAX와 같게 유지
+const FOLD_LIMIT = 8;
 const CARD_FIELDS = { turn:'value', nm:'value', bs:'value', rn:'value', ex:'value', at:'value',
                       ga:'value', gt:'value', st:'value', sw:'checked', nl:'checked' };
 
@@ -818,6 +817,15 @@ function loadFavs() {
 }
 function storeFavs(favs) {
   try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch {}
+}
+function isFavExpanded() {
+  try { return localStorage.getItem(FAV_EXPANDED_KEY) === 'true'; } catch { return false; }
+}
+function toggleFavExpanded() {
+  try { localStorage.setItem(FAV_EXPANDED_KEY, String(!isFavExpanded())); } catch {}
+  renderFavs();
+  // 버튼을 다시 그려도 키보드 포커스 유지
+  document.querySelector('#fav-toggle button')?.focus();
 }
 
 function getFormState() {
@@ -880,16 +888,31 @@ function deleteFav(i) {
 function renderFavs() {
   const favs = loadFavs();
   const list = document.getElementById('fav-list');
+  const title = document.getElementById('fav-title');
+  const toggle = document.getElementById('fav-toggle');
+  const expanded = isFavExpanded();
+  // 원래 인덱스를 유지해 불러오기·삭제에 사용
+  const shownFavs = (expanded ? favs : favs.slice(0, FOLD_LIMIT)).map((f, i) => ({ f, i }));
+  // 개수는 숫자뿐이라 innerHTML로 넣어도 안전. 안내 문구는 기존처럼 작은 글씨 유지
+  title.innerHTML = `⭐ 내 덱${favs.length ? ` ${favs.length}개` : ''} <span style="font-size:0.75rem">(이 브라우저에 저장됨)</span>`;
   list.innerHTML = favs.length
-    ? favs.map((f, i) => `<span class="fav-chip">
+    ? shownFavs.map(({ i }) => `<span class="fav-chip">
         <button class="fav-load" onclick="setFormState(loadFavs()[${i}])"></button>
         <button class="fav-del" onclick="deleteFav(${i})" title="삭제">×</button>
       </span>`).join('')
     : `<span style="font-size:0.8125rem;color:var(--sub)">저장된 덱이 없습니다. 덱을 입력한 뒤 저장해 보세요.</span>`;
   // 사용자가 입력한 이름은 textContent로 넣음
   list.querySelectorAll('.fav-load').forEach((b, i) => {
-    b.textContent = `${favs[i].label} (${favs[i].mode === 'arena' ? '실레나' : '점령전'})`;
+    const f = shownFavs[i].f;
+    b.textContent = `${f.label} (${f.mode === 'arena' ? '실레나' : '점령전'})`;
   });
+  if (favs.length > FOLD_LIMIT) {
+    toggle.style.marginBottom = '10px';
+    toggle.innerHTML = `<button class="mini-btn" onclick="toggleFavExpanded()" aria-expanded="${expanded}" aria-controls="fav-list">${expanded ? '▴ 접기' : `▾ 전체 보기 (${favs.length}개)`}</button>`;
+  } else {
+    toggle.style.marginBottom = '';
+    toggle.innerHTML = '';
+  }
 }
 
 // ── 즐겨찾기 저장 코드 (서버) ───────────────────────
@@ -1022,52 +1045,6 @@ async function restoreFavs() {
     renderFavs();
     if (isCurrent(gen)) syncMsg(`내 덱 ${merged.length}개를 불러왔습니다. 저장 코드 ${data.code}`);
   } catch (e) { if (isCurrent(gen)) syncMsg(e.message, true); }
-}
-
-// ── 추천 덱 (모두에게 같은 기본 조합, 삭제 불가) ──────
-// cards는 몬1·몬2·몬3 카드 순서대로 [이름, 턴 순위], ''는 사용자가 고를 빈칸
-// gaugeTgt: { 주는 몬스터 순위: 받는 몬스터 순위 } (1인 게업 대상)
-const RECOMMENDED = [
-  { cards: [['물무희', 3], ['물호박', 1], ['', 2]] },
-  { cards: [['물무희', 3], ['물푸딩', 1], ['', 2]] },
-  { cards: [['물무희', 3], ['빛늑인', 1], ['', 2]] },
-  { cards: [['물무희', 3], ['암하그', 1], ['', 2]], gaugeTgt: { 1: 2 } },  // 암하그 게업은 2순위에게
-  { cards: [['물해적', 2], ['풍극지', 1], ['', 3]] },
-  { cards: [['풍초코', 2], ['빛하피', 1], ['풍조커', 3]] },
-];
-
-// 콘텐츠·리더·토템은 사용자가 입력해 둔 값을 유지
-function applyRecommended(r) {
-  r.cards.forEach(([name, turn], i) => {
-    const set = (k, v) => { document.getElementById(`${k}-${i}`).value = v; };
-    set('turn', turn);
-    set('rn', ''); set('at', 0);
-    document.getElementById(`sw-${i}`).checked = false;
-    document.getElementById(`nl-${i}`).checked = false;
-    if (name) {
-      set('ps', name);
-      applyPreset(i, name);
-    } else {
-      ['ps', 'nm', 'bs'].forEach(k => set(k, ''));
-      set('ex', 0); set('ga', 0);
-      setSelectVal(`gt-${i}`, 'none');
-      setSelectVal(`st-${i}`, 'none');
-      showPresetNotes(i, null);
-      renderExtraOptions(i);
-    }
-  });
-  updateTurnOrder();
-  const cardOf = turn => r.cards.findIndex(c => c[1] === turn);
-  Object.entries(r.gaugeTgt || {}).forEach(([from, to]) => setSelectVal(`gt-${cardOf(+from)}`, String(cardOf(to))));
-  const blank = r.cards.findIndex(c => !c[0]);
-  document.getElementById(blank >= 0 ? `ps-${blank}` : `rn-${cardOf(1)}`).focus();
-}
-
-function renderRecommended() {
-  const list = document.getElementById('rec-list');
-  list.innerHTML = RECOMMENDED.map((r, i) =>
-    `<span class="fav-chip rec"><button class="fav-load" onclick="applyRecommended(RECOMMENDED[${i}])">${r.cards.map(c => c[0] || '?').join(' + ')}</button></span>`
-  ).join('');
 }
 
 // ── 덱 공유 링크 (#d=덱 정보) ─────────────────────
@@ -1511,7 +1488,6 @@ async function showSpeedTable() {
 
 // Init
 renderMonsters();
-renderRecommended();
 renderFavs();
 document.getElementById('sync-code').value = getSyncCode();
 pullFavsOnOpen();

@@ -11,7 +11,7 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '300kb' }));  // 내 덱 100개 동기화(약 70KB)를 받을 수 있게
 
 // ─── 라우트 (static 파일보다 먼저 정의) ────────────────────────────────────────────────────
 app.get('/td-spd-cal', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -529,7 +529,7 @@ app.delete('/api/records/:id', async (req, res) => {
 // 로그인 없이 코드 하나로 다른 기기·브라우저에서 즐겨찾기를 불러옴. 코드를 아는 사람만 읽고 고칠 수 있음
 // 헷갈리는 0/O, 1/I 제외 32자 × 10자리 ≈ 50비트라 추측으로 맞히기 어려움
 const FAV_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const FAV_MAX = 50;
+const FAV_MAX = 100;
 
 function newFavCode() {
   const s = [...crypto.randomBytes(10)].map(b => FAV_CODE_CHARS[b & 31]).join('');

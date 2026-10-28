@@ -857,21 +857,22 @@ function renderFavs() {
 }
 
 // ── 추천 덱 (모두에게 같은 기본 조합, 삭제 불가) ──────
-// cards는 턴 순서(1·2·3순위)대로, ''는 사용자가 고를 빈칸. gaugeTgt는 1인 게업 대상을 순위로 지정
+// cards는 몬1·몬2·몬3 카드 순서대로 [이름, 턴 순위], ''는 사용자가 고를 빈칸
+// gaugeTgt: { 주는 몬스터 순위: 받는 몬스터 순위 } (1인 게업 대상)
 const RECOMMENDED = [
-  { cards: ['물호박', '', '물무희'] },
-  { cards: ['물푸딩', '', '물무희'] },
-  { cards: ['빛늑인', '', '물무희'] },
-  { cards: ['암하그', '', '물무희'], gaugeTgt: { 1: 2 } },  // 암하그 게업은 2순위에게
-  { cards: ['풍극지', '물해적', ''] },
-  { cards: ['빛하피', '풍초코', '풍조커'] },
+  { cards: [['물무희', 3], ['물호박', 1], ['', 2]] },
+  { cards: [['물무희', 3], ['물푸딩', 1], ['', 2]] },
+  { cards: [['물무희', 3], ['빛늑인', 1], ['', 2]] },
+  { cards: [['물무희', 3], ['암하그', 1], ['', 2]], gaugeTgt: { 1: 2 } },  // 암하그 게업은 2순위에게
+  { cards: [['물해적', 2], ['풍극지', 1], ['', 3]] },
+  { cards: [['풍초코', 2], ['빛하피', 1], ['풍조커', 3]] },
 ];
 
-// 카드 번호 = 턴 순위로 채움. 콘텐츠·리더·토템은 사용자가 입력해 둔 값을 유지
+// 콘텐츠·리더·토템은 사용자가 입력해 둔 값을 유지
 function applyRecommended(r) {
-  r.cards.forEach((name, i) => {
+  r.cards.forEach(([name, turn], i) => {
     const set = (k, v) => { document.getElementById(`${k}-${i}`).value = v; };
-    set('turn', i + 1);
+    set('turn', turn);
     set('rn', ''); set('at', 0);
     document.getElementById(`sw-${i}`).checked = false;
     document.getElementById(`nl-${i}`).checked = false;
@@ -888,15 +889,16 @@ function applyRecommended(r) {
     }
   });
   updateTurnOrder();
-  Object.entries(r.gaugeTgt || {}).forEach(([from, to]) => setSelectVal(`gt-${from - 1}`, String(to - 1)));
-  const blank = r.cards.indexOf('');
-  document.getElementById(blank >= 0 ? `ps-${blank}` : 'rn-0').focus();
+  const cardOf = turn => r.cards.findIndex(c => c[1] === turn);
+  Object.entries(r.gaugeTgt || {}).forEach(([from, to]) => setSelectVal(`gt-${cardOf(+from)}`, String(cardOf(to))));
+  const blank = r.cards.findIndex(c => !c[0]);
+  document.getElementById(blank >= 0 ? `ps-${blank}` : `rn-${cardOf(1)}`).focus();
 }
 
 function renderRecommended() {
   const list = document.getElementById('rec-list');
   list.innerHTML = RECOMMENDED.map((r, i) =>
-    `<span class="fav-chip rec"><button class="fav-load" onclick="applyRecommended(RECOMMENDED[${i}])">${r.cards.map(n => n || '?').join(' → ')}</button></span>`
+    `<span class="fav-chip rec"><button class="fav-load" onclick="applyRecommended(RECOMMENDED[${i}])">${r.cards.map(c => c[0] || '?').join(' + ')}</button></span>`
   ).join('');
 }
 

@@ -53,6 +53,11 @@ const PRESETS_EXTRA = {
   '암헬하': 25,
 };
 
+// 몬스터별 추가 공속 (화면에서 보낸 값 우선, 없으면 이름으로 기본값)
+function extraOf(m) {
+  return typeof m.extra === 'number' ? m.extra : (PRESETS_EXTRA[m.name] || 0);
+}
+
 function calcSpeed(base, runeDisp, hasSwift, ldr, tot) {
   const mult = 1 + ldr/100 + tot/100;
   if (hasSwift) {
@@ -140,7 +145,7 @@ function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, 
   const needSpeed = Math.max(needFromGauge, needFor100);
   if (needSpeed <= 0) return { minSpeed: 0, minRune: 0, free: true };
 
-  const extra = PRESETS_EXTRA[ally.name] || 0;
+  const extra = extraOf(ally);
   const mult = 1 + ldr/100 + tot/100;
   const swRaw = ally.swift ? ally.base * 0.25 : 0;
   const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
@@ -160,7 +165,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
   // 몬스터 speed 계산
   const allies = monsters.map(m => {
     let speed = calcSpeed(m.base, m.rune, m.swift, ldrOf(m), tot);
-    if (PRESETS_EXTRA[m.name]) speed += PRESETS_EXTRA[m.name];
+    speed += extraOf(m);
     const speedBuff = calcBuff(speed, m.arti);
     return { ...m, speed, speedBuff, isAlly: true };
   });
@@ -218,7 +223,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
       needSpeed = Math.ceil(enemySpd - totalBonus / (tr * targetTick));
     }
 
-    const extra = PRESETS_EXTRA[ally.name] || 0;
+    const extra = extraOf(ally);
     const mult = 1 + ldrOf(ally)/100 + tot/100;
     const swRaw = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
@@ -246,7 +251,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     const gauge3 = gaugeAt(ally3.speed, ally3.arti, buffedByLead(ally3), firstTick, targetTick2, bonus3ForOrdering, tr);
 
     // 2순위가 3순위보다 먼저 턴을 받을 때까지 뒷속을 올림
-    const extra2 = PRESETS_EXTRA[ally2.name] || 0;
+    const extra2 = extraOf(ally2);
     const speed2Of = r => calcSpeed(ally2.base, r, ally2.swift, ldrOf(ally2), tot) + extra2;
     let fixedRune = ally2.rune;
     while (!allyGoesFirst(gaugeAt(speed2Of(fixedRune), ally2.arti, buffedByLead(ally2), firstTick, targetTick2, bonus2, tr), ally2, gauge3, ally3)) fixedRune++;
@@ -297,7 +302,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
       minSpeed = Math.ceil(enemySpd - bonus / (tr * estimatedTi));
     }
 
-    const extra = PRESETS_EXTRA[ally.name] || 0;
+    const extra = extraOf(ally);
     const mult = 1 + ldrOf(ally)/100 + tot/100;
     const swRaw = ally.swift ? ally.base * 0.25 : 0;
     const swCeil = ally.swift ? Math.ceil(swRaw) : 0;
@@ -310,7 +315,7 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
   // 순서 검증 (summary)
   if (minRuneSummary.length >= 2) {
     const a2 = sortedByTurn[1], a3 = sortedByTurn[2];
-    const speedOf = (a, r) => calcSpeed(a.base, r, a.swift, ldrOf(a), tot) + (PRESETS_EXTRA[a.name] || 0);
+    const speedOf = (a, r) => calcSpeed(a.base, r, a.swift, ldrOf(a), tot) + extraOf(a);
     const buffedByLead = a => lead1stGivesSpeedBuffSummary && (lead.sTgt === 'all' || parseInt(lead.sTgt) === a.idx);
     const b2 = minRuneSummary[0].bonus;
     let b3ord = 0;
@@ -418,6 +423,36 @@ app.post('/api/calculate', (req, res) => {
   try {
     const result = runCalculation(req.body);
     res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 공속계산표: 1순위 뒷속을 바꿔가며 2·3순위 필요 뒷속을 한 번에 계산
+app.post('/api/speed-table', (req, res) => {
+  try {
+    const { monsters, range = 10 } = req.body;
+    const lead = monsters.find(m => m.turn === 1);
+    if (!lead) return res.status(400).json({ error: '1순위 몬스터가 없습니다.' });
+    const span = Math.min(Math.max(+range || 10, 1), 30);
+
+    const rows = [];
+    for (let rune = Math.max(0, lead.rune - span); rune <= lead.rune + span; rune++) {
+      const ms = monsters.map(m => (m.idx === lead.idx ? { ...m, rune } : { ...m }));
+      const r = runCalculation({ ...req.body, monsters: ms });
+      if (r.warning) {
+        rows.push({ leadRune: rune, warning: r.warning });
+        continue;
+      }
+      rows.push({
+        leadRune: rune,
+        leadSpeed: r.statTable.find(s => s.isAlly && s.name === r.leadName).speed,
+        T1: r.T1,
+        others: r.minRuneSummary.map(s => ({ name: s.name, minRune: s.minRune })),
+        orderBroken: r.orderBroken,
+      });
+    }
+    res.json({ leadName: lead.name, currentRune: lead.rune, rows });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

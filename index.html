@@ -60,6 +60,15 @@ input[type=checkbox] { width:15px; height:15px; accent-color: var(--accent); cur
 }
 .calc-btn:hover { opacity: .85; }
 
+.mini-btn { background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 12px; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+.mini-btn:hover { border-color:var(--accent); }
+.fav-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.fav-chip { display:inline-flex; border:1px solid var(--yellow); border-radius:999px; overflow:hidden; }
+.fav-chip button { background:transparent; border:none; color:var(--text); font-size:0.78rem; padding:4px 10px; cursor:pointer; }
+.fav-chip .fav-load:hover { background:rgba(210,153,34,.15); }
+.fav-chip .fav-del { color:var(--sub); padding:4px 8px; border-left:1px solid var(--border); }
+.fav-chip .fav-del:hover { color:var(--red); }
+
 /* Results */
 .hidden { display: none; }
 table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
@@ -98,6 +107,12 @@ tr:last-child td { border-bottom: none; }
 .min-rune-val { font-size:1.1rem; font-weight:700; color:var(--accent2); }
 .min-rune-ok  { color:var(--green); font-size:0.75rem; font-weight:600; }
 .min-rune-fail{ color:var(--red);   font-size:0.75rem; font-weight:600; }
+.sum-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.sum-chip { font-size:0.76rem; color:var(--sub); padding:4px 10px; border-radius:999px; background:var(--card2); border:1px solid var(--border); }
+.sum-chip b { color:var(--text); }
+.sum-chip.ok { border-color:var(--green); color:var(--green); }
+.sum-chip.warn { border-color:var(--yellow); color:var(--yellow); }
+.sum-chip.fail { border-color:var(--red); color:var(--red); }
 .min-rune-note{ font-size:0.74rem; color:var(--sub); margin-top:8px; padding:6px 10px; background:rgba(88,166,255,0.05); border-radius:6px; border:1px solid var(--border); }
 </style>
 </head>
@@ -107,6 +122,16 @@ tr:last-child td { border-bottom: none; }
 <div class="layout">
 <!-- LEFT: INPUTS -->
 <div>
+  <!-- 즐겨찾기 덱 -->
+  <div class="card">
+    <div class="card-title">⭐ 즐겨찾기 덱</div>
+    <div id="fav-list" class="fav-list"></div>
+    <div class="row" style="margin-bottom:0">
+      <input type="text" id="fav-name" placeholder="덱 이름 (비우면 몬스터 이름)" style="flex:1;min-width:0">
+      <button class="mini-btn" onclick="saveFav()">☆ 현재 덱 저장</button>
+    </div>
+  </div>
+
   <!-- 전투 설정 -->
   <div class="card">
     <div class="card-title">⚙️ 전투 설정</div>
@@ -197,6 +222,8 @@ tr:last-child td { border-bottom: none; }
   <div class="card">
     <div class="card-title">⚡ 필요 최저 뒷속 요약</div>
     <div id="min-rune-summary"></div>
+    <button class="mini-btn" style="margin-top:10px" onclick="showSpeedTable()">📋 공속계산표 (선턴 뒷속 ±10)</button>
+    <div id="speed-table" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
@@ -370,7 +397,7 @@ const PRESETS = {
   '풍초코': {
     name: '풍초코',
     base: 103,
-    skill: { gaugeAmt: 15, gaugeTgt: 'al', speedTgt: 'none' },
+    skill: { gaugeAmt: 15, gaugeTgt: 'all', speedTgt: 'none' },
     notes: '전체 15% 게업 부여'
   },
   '빛하피': {
@@ -458,7 +485,8 @@ function copyFastestAlly() {
     const rune  = +document.getElementById(`rn-${i}`).value || 0;
     const swift = document.getElementById(`sw-${i}`).checked;
     const noLeader = document.getElementById(`nl-${i}`).checked;
-    return { base, rune, swift, speed: calcSpeed(base, rune, swift, noLeader ? 0 : ldr, tot) };
+    const extra = +document.getElementById(`ex-${i}`).value || 0;
+    return { base, rune, swift, speed: calcSpeed(base, rune, swift, noLeader ? 0 : ldr, tot) + extra };
   });
   const fastest = allies.reduce((a,b) => a.speed >= b.speed ? a : b);
 
@@ -515,7 +543,7 @@ function renderMonsters() {
     <h3>몬스터 ${i+1}</h3>
     <div class="m-row">
       <span class="m-lbl">턴 순서</span>
-      <select id="turn-${i}" onchange="updateTurnOrder()" style="width:100px">
+      <select id="turn-${i}" onchange="onTurnChange(${i})" style="width:100px">
         <option value="1" ${d.turn===1?'selected':''}>1순위</option>
         <option value="2" ${d.turn===2?'selected':''}>2순위</option>
         <option value="3" ${d.turn===3?'selected':''}>3순위</option>
@@ -523,7 +551,7 @@ function renderMonsters() {
     </div>
     <div class="m-row">
       <span class="m-lbl">프리셋</span>
-      <select onchange="applyPreset(${i},this.value)">${presetOpts}</select>
+      <select id="ps-${i}" onchange="applyPreset(${i},this.value)">${presetOpts}</select>
     </div>
     <div id="notes-${i}" style="font-size:0.75rem;color:var(--sub);margin:8px 0;padding:6px 8px;background:rgba(88,166,255,0.05);border-radius:6px;border-left:2px solid var(--accent);display:none"></div>
     <div class="m-row">
@@ -541,6 +569,11 @@ function renderMonsters() {
     <div class="m-row">
       <span class="m-lbl">신속 세트</span>
       <input type="checkbox" id="sw-${i}" ${d.swift?'checked':''}>
+    </div>
+    <div class="m-row">
+      <span class="m-lbl">추가 공속</span>
+      <input type="number" id="ex-${i}" value="0" min="0" step="0.5">
+      <span style="font-size:0.75rem;color:var(--sub);margin-left:8px">(물호박 의보 등 특수 보정)</span>
     </div>
     <div class="m-row">
       <span class="m-lbl">리더 효과 X</span>
@@ -569,7 +602,7 @@ function renderMonsters() {
 
   // Set default select values
   defaults.forEach((d,i) => {
-    document.querySelector(`#monsters .monster-block:nth-child(${i+1}) select`).value = '직접 입력';
+    document.getElementById(`ps-${i}`).value = '직접 입력';
     setSelectVal(`gt-${i}`, d.gTgt);
     setSelectVal(`st-${i}`, d.sTgt);
   });
@@ -589,22 +622,17 @@ function getTurnOrder() {
   return [0,1,2].map(i => +document.getElementById(`turn-${i}`).value);
 }
 
-function updateTurnOrder() {
-  const turns = getTurnOrder();
-  // 중복 체크 및 자동 수정
-  const counts = [0,0,0];
-  turns.forEach(t => counts[t-1]++);
+// 턴 순서를 바꾸면 그 순위를 갖고 있던 몬스터와 순위를 맞바꿈
+let prevTurns = [1,2,3];
+function onTurnChange(idx) {
+  const newTurn = +document.getElementById(`turn-${idx}`).value;
+  const other = prevTurns.findIndex((t, j) => j !== idx && t === newTurn);
+  if (other >= 0) document.getElementById(`turn-${other}`).value = prevTurns[idx];
+  updateTurnOrder();
+}
 
-  // 중복이 있으면 자동 수정
-  let needed = [1,2,3];
-  for (let i = 0; i < 3; i++) {
-    const turn = turns[i];
-    if (counts[turn-1] > 1) {
-      // 이미 사용된 순서면 비어있는 순서로 변경
-      const unused = needed.find(n => !turns.includes(n));
-      if (unused) document.getElementById(`turn-${i}`).value = unused;
-    }
-  }
+function updateTurnOrder() {
+  prevTurns = getTurnOrder();
 
   // 뒷속 입력칸 활성/비활성화
   const newTurns = getTurnOrder();
@@ -632,6 +660,7 @@ function applyPreset(idx, name) {
   // 이름과 기본공속 설정
   document.getElementById(`nm-${idx}`).value = p.name || name;
   document.getElementById(`bs-${idx}`).value = p.base;
+  document.getElementById(`ex-${idx}`).value = p.extraSpeedBonus || 0;
 
   // 스킬 효과 설정 (새로운 구조: p.skill)
   if (p.skill) {
@@ -640,14 +669,90 @@ function applyPreset(idx, name) {
     setSelectVal(`st-${idx}`, p.skill.speedTgt);
   }
 
-  // Notes 표시
+  showPresetNotes(idx, p);
+}
+
+function showPresetNotes(idx, p) {
   const notesEl = document.getElementById(`notes-${idx}`);
-  if (p.notes) {
+  if (p && p.notes) {
     notesEl.textContent = `💡 ${p.notes}`;
     notesEl.style.display = 'block';
   } else {
     notesEl.style.display = 'none';
   }
+}
+
+// ── 즐겨찾기 덱 (이 브라우저에만 저장) ──────────────
+const FAV_KEY = 'spdcalc_favorites';
+const CARD_FIELDS = { turn:'value', nm:'value', bs:'value', rn:'value', ex:'value', at:'value',
+                      ga:'value', gt:'value', st:'value', sw:'checked', nl:'checked' };
+
+function loadFavs() {
+  try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch { return []; }
+}
+function storeFavs(favs) {
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch {}
+}
+
+function getFormState() {
+  return {
+    mode,
+    leader: document.getElementById('leader').value,
+    totem:  document.getElementById('totem').value,
+    cards: [0,1,2].map(i => Object.fromEntries(
+      Object.entries(CARD_FIELDS).map(([k, prop]) => [k, document.getElementById(`${k}-${i}`)[prop]])
+    )),
+  };
+}
+
+function setFormState(s) {
+  setMode(s.mode);
+  document.getElementById('leader').value = s.leader;
+  document.getElementById('totem').value  = s.totem;
+  s.cards.forEach((c, i) => {
+    Object.entries(CARD_FIELDS).forEach(([k, prop]) => {
+      if (k in c) document.getElementById(`${k}-${i}`)[prop] = c[k];
+    });
+    const p = PRESETS[c.nm];
+    document.getElementById(`ps-${i}`).value = p ? c.nm : '직접 입력';
+    showPresetNotes(i, p);
+  });
+  updateTurnOrder();
+  // 선턴 뒷속 칸으로 바로 이동
+  const lead = prevTurns.indexOf(1);
+  if (lead >= 0) document.getElementById(`rn-${lead}`).focus();
+}
+
+function saveFav() {
+  const state = getFormState();
+  const nameEl = document.getElementById('fav-name');
+  const byTurn = [...state.cards].sort((a, b) => a.turn - b.turn).map(c => c.nm || '?');
+  state.label = nameEl.value.trim() || byTurn.join(' · ');
+  storeFavs([state, ...loadFavs()].slice(0, 20));
+  nameEl.value = '';
+  renderFavs();
+}
+
+function deleteFav(i) {
+  const favs = loadFavs();
+  favs.splice(i, 1);
+  storeFavs(favs);
+  renderFavs();
+}
+
+function renderFavs() {
+  const favs = loadFavs();
+  const list = document.getElementById('fav-list');
+  list.innerHTML = favs.length
+    ? favs.map((f, i) => `<span class="fav-chip">
+        <button class="fav-load" onclick="setFormState(loadFavs()[${i}])"></button>
+        <button class="fav-del" onclick="deleteFav(${i})" title="삭제">×</button>
+      </span>`).join('')
+    : `<span style="font-size:0.76rem;color:var(--sub)">저장된 덱이 없습니다. 덱을 입력한 뒤 저장해 보세요.</span>`;
+  // 사용자가 입력한 이름은 textContent로 넣음
+  list.querySelectorAll('.fav-load').forEach((b, i) => {
+    b.textContent = `${favs[i].label} (${favs[i].mode === 'arena' ? '실레나' : '점령전'})`;
+  });
 }
 
 // Get monster data
@@ -666,22 +771,12 @@ function getMonsters() {
     const gTgt  = document.getElementById(`gt-${i}`).value;
     const sTgt  = document.getElementById(`st-${i}`).value;
     const turn  = turns[i];
-    let speed = calcSpeed(base, rune, swift, noLeader ? 0 : ldr, tot);
-
-    // 특정 몬스터에 대한 예외 규칙 적용 (예: 물호박 의보 공속)
-    const presetName = Object.keys(PRESETS).find(k => {
-      const p = PRESETS[k];
-      return p && p.name === name;
-    });
-    if (presetName) {
-      const preset = PRESETS[presetName];
-      if (preset.extraSpeedBonus) {
-        speed += preset.extraSpeedBonus;
-      }
-    }
+    // 특수 보정 (예: 물호박 의보 공속) — 프리셋 선택 시 자동 입력
+    const extra = +document.getElementById(`ex-${i}`).value || 0;
+    const speed = calcSpeed(base, rune, swift, noLeader ? 0 : ldr, tot) + extra;
 
     const speedBuff = calcBuff(speed, arti);
-    return { idx:i, name, base, rune, swift, noLeader, arti, speed, speedBuff, gAmt, gTgt, sTgt, turn, isAlly:true };
+    return { idx:i, name, base, rune, swift, noLeader, extra, arti, speed, speedBuff, gAmt, gTgt, sTgt, turn, isAlly:true };
   });
 }
 
@@ -697,7 +792,7 @@ function getEnemySpeed() {
 }
 
 // ── 계산하기 ──────────────────────────────
-async function calculate() {
+function buildPayload() {
   const allies = getMonsters();
   const ldr = +document.getElementById('leader').value || 0;
   const tot = +document.getElementById('totem').value || 0;
@@ -718,7 +813,13 @@ async function calculate() {
     }
   }
 
-  const payload = { mode, ldr, tot, useEnemySpec, enemySpec, monsters: allies };
+  return { mode, ldr, tot, useEnemySpec, enemySpec, monsters: allies };
+}
+
+async function calculate() {
+  const payload = buildPayload();
+  const { ldr, tot } = payload;
+  document.getElementById('speed-table').innerHTML = '';
 
   let result;
   try {
@@ -746,7 +847,16 @@ async function calculate() {
 
   // ── 필요 최저 뒷속 요약 렌더 ──
   const summaryDiv = document.getElementById('min-rune-summary');
-  let html = `<table class="min-rune-table">
+  const leadRow = result.statTable.find(s => s.isAlly && s.name === result.leadName);
+  const margin = leadRow.speed - result.enemySpd;
+  let html = `<div class="sum-chips">
+    <span class="sum-chip">선턴 <b>${result.leadName}</b> 합속 <b>${leadRow.speed}</b></span>
+    <span class="sum-chip">첫 턴 <b>${result.T1}틱</b></span>
+    <span class="sum-chip">상대 합속 <b>${result.enemySpd}</b>${useEnemySpec ? '' : ' (선턴과 동속 가정)'}</span>
+    <span class="sum-chip ${margin > 0 ? 'ok' : 'warn'}">선턴 여유 <b>${margin > 0 ? '+' + margin : margin}</b>${margin === 0 ? ' (동속, 아군 우선)' : ''}</span>
+    <span class="sum-chip ${result.orderBroken ? 'fail' : 'ok'}">${result.orderBroken ? '✗ 턴 순서 불가' : '✓ 턴 순서 OK'}</span>
+  </div>
+  <table class="min-rune-table">
     <thead><tr>
       <th>몬스터</th><th>목표 틱</th><th>게이지 보너스</th><th>아티 속버프%</th><th>필요 최저 뒷속</th>
     </tr></thead><tbody>`;
@@ -838,8 +948,48 @@ async function calculate() {
   }).catch(() => {});
 }
 
+// ── 공속계산표 ──────────────────────────────
+async function showSpeedTable() {
+  const box = document.getElementById('speed-table');
+  box.innerHTML = '<span style="font-size:0.78rem;color:var(--sub)">계산 중...</span>';
+  let data;
+  try {
+    const res = await fetch('/api/speed-table', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...buildPayload(), range: 10 }),
+    });
+    data = await res.json();
+    if (data.error) throw new Error(data.error);
+  } catch (e) {
+    box.innerHTML = `<span style="font-size:0.78rem;color:var(--red)">공속계산표를 불러오지 못했습니다.</span>`;
+    return;
+  }
+
+  const names = (data.rows.find(r => r.others) || { others: [] }).others.map(o => o.name);
+  let html = `<div style="max-height:360px;overflow:auto"><table class="min-rune-table">
+    <thead><tr><th>${data.leadName} 뒷속</th><th>합속</th><th>첫 턴</th>${names.map(n => `<th>${n} 필요 뒷속</th>`).join('')}</tr></thead><tbody>`;
+  data.rows.forEach(r => {
+    const cur = r.leadRune === data.currentRune ? ' style="background:rgba(124,111,247,.12)"' : '';
+    if (r.warning) {
+      html += `<tr${cur}><td>${r.leadRune}</td><td colspan="${2 + names.length}" style="color:var(--red)">상대 선턴잡이보다 느림</td></tr>`;
+      return;
+    }
+    html += `<tr${cur}>
+      <td style="font-weight:600">${r.leadRune}${r.orderBroken ? ' <span style="color:var(--red);font-size:0.72rem">⚠ 순서 불가</span>' : ''}</td>
+      <td>${r.leadSpeed}</td>
+      <td style="color:var(--sub)">${r.T1}틱</td>
+      ${r.others.map(o => `<td><span class="min-rune-val" style="font-size:0.95rem">${o.minRune}</span></td>`).join('')}
+    </tr>`;
+  });
+  html += `</tbody></table></div>
+    <p class="min-rune-note">보라색 줄이 현재 입력한 선턴 뒷속입니다. 아티 속버프%, 게이지 등 다른 입력은 현재 값 그대로 계산합니다.</p>`;
+  box.innerHTML = html;
+}
+
 // Init
 renderMonsters();
+renderFavs();
 
 </script>
 </body>

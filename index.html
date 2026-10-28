@@ -97,6 +97,7 @@ input[type=checkbox] { width:18px; height:18px; accent-color: var(--accent); cur
 .fav-chip .fav-load:hover { background:rgba(210,153,34,.15); }
 .fav-chip .fav-del { color:var(--sub); padding:4px 8px; border-left:1px solid var(--border); }
 .fav-chip .fav-del:hover { color:var(--red); }
+.fav-note { font-size:0.8125rem; color:var(--sub); line-height:1.5; }
 
 /* Results */
 .hidden { display: none; }
@@ -159,6 +160,12 @@ tr:last-child td { border-bottom: none; }
       <input type="text" id="fav-name" placeholder="덱 이름 (비우면 몬스터 이름)" style="flex:1;min-width:0">
       <button class="mini-btn" onclick="saveFav()">☆ 현재 덱 저장</button>
     </div>
+    <div class="row" style="margin:8px 0 0">
+      <button class="mini-btn" onclick="copyShareLink()">🔗 공유 링크 복사</button>
+      <span id="share-msg" class="fav-note" role="status"></span>
+    </div>
+    <input type="text" id="share-url" readonly style="display:none;width:100%;margin-top:6px" onclick="this.select()">
+    <p class="fav-note" style="margin-top:8px">즐겨찾기는 이 브라우저에만 저장됩니다. 다른 기기·브라우저(카톡 안 브라우저 포함)에서 쓰거나 남에게 보내려면 공유 링크를 복사해 두세요.</p>
   </div>
 
   <!-- 전투 설정 -->
@@ -781,7 +788,7 @@ function getFormState() {
   };
 }
 
-function setFormState(s) {
+function setFormState(s, focus = true) {
   setMode(s.mode);
   document.getElementById('leader').value = s.leader;
   document.getElementById('totem').value  = s.totem;
@@ -789,7 +796,7 @@ function setFormState(s) {
     Object.entries(CARD_FIELDS).forEach(([k, prop]) => {
       if (k in c) document.getElementById(`${k}-${i}`)[prop] = c[k];
     });
-    const p = PRESETS[c.nm];
+    const p = Object.hasOwn(PRESETS, c.nm) ? PRESETS[c.nm] : null;
     document.getElementById(`ps-${i}`).value = p ? c.nm : '';
     showPresetNotes(i, p);
     renderExtraOptions(i);
@@ -797,7 +804,7 @@ function setFormState(s) {
   updateTurnOrder();
   // 선턴 뒷속 칸으로 바로 이동
   const lead = prevTurns.indexOf(1);
-  if (lead >= 0) document.getElementById(`rn-${lead}`).focus();
+  if (focus && lead >= 0) document.getElementById(`rn-${lead}`).focus();
 }
 
 function saveFav() {
@@ -830,6 +837,62 @@ function renderFavs() {
   list.querySelectorAll('.fav-load').forEach((b, i) => {
     b.textContent = `${favs[i].label} (${favs[i].mode === 'arena' ? '실레나' : '점령전'})`;
   });
+}
+
+// ── 덱 공유 링크 (#d=덱 정보) ─────────────────────
+// 주소의 # 뒤는 서버로 전송되지 않음. 기기·브라우저가 달라도 링크만 있으면 같은 덱을 불러옴
+// 링크를 짧게 하려고 항목 이름 없이 [모드, 리더, 토템, 카드1, 카드2, 카드3] 배열로 담음 (카드는 CARD_FIELDS 순서)
+const CARD_KEYS = Object.keys(CARD_FIELDS);
+function encodeDeck(state) {
+  const packed = [state.mode === 'arena' ? 1 : 0, state.leader, state.totem,
+    ...state.cards.map(c => CARD_KEYS.map(k => typeof c[k] === 'boolean' ? +c[k] : c[k]))];
+  const bytes = new TextEncoder().encode(JSON.stringify(packed));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// 링크는 누구나 만들 수 있으므로 형식을 검사하고 값을 정리한 뒤에만 적용
+function decodeDeck(code) {
+  try {
+    const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'));
+    const a = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+    if (!Array.isArray(a) || a.length !== 6 || !a.slice(3).every(Array.isArray)) return null;
+    const str = v => String(v ?? '').slice(0, 40);
+    return {
+      mode: a[0] === 1 ? 'arena' : 'siege',
+      leader: str(a[1]), totem: str(a[2]),
+      cards: a.slice(3).map(c => Object.fromEntries(
+        CARD_KEYS.map((k, j) => [k, CARD_FIELDS[k] === 'checked' ? !!c[j] : str(c[j])])
+      )),
+    };
+  } catch { return null; }
+}
+
+function copyShareLink() {
+  const url = `${location.origin}${location.pathname}#d=${encodeDeck(getFormState())}`;
+  const msg = document.getElementById('share-msg');
+  const box = document.getElementById('share-url');
+  const fallback = () => {
+    // 카톡 등 앱 안 브라우저는 클립보드 복사를 막는 경우가 있어 직접 복사하도록 보여줌
+    box.value = url; box.style.display = 'block'; box.select();
+    msg.textContent = '아래 링크를 길게 눌러 복사하세요.';
+  };
+  if (!navigator.clipboard) return fallback();
+  navigator.clipboard.writeText(url).then(() => {
+    box.style.display = 'none';
+    msg.textContent = '링크를 복사했습니다. 북마크하거나 카톡으로 보내 두세요.';
+  }, fallback);
+}
+
+function loadDeckFromUrl() {
+  const m = location.hash.match(/^#d=([A-Za-z0-9_-]+)$/);
+  if (!m) return;
+  const state = decodeDeck(m[1]);
+  // 불러온 뒤 주소에서 지워, 덱을 고친 다음 새로고침해도 링크 값으로 되돌아가지 않게 함
+  history.replaceState(null, '', location.pathname + location.search);
+  document.getElementById('share-msg').textContent = state
+    ? '공유 링크의 덱을 불러왔습니다.'
+    : '공유 링크가 올바르지 않아 불러오지 못했습니다.';
+  if (state) setFormState(state, false);
 }
 
 // Get monster data
@@ -1188,6 +1251,7 @@ async function showSpeedTable() {
 // Init
 renderMonsters();
 renderFavs();
+loadDeckFromUrl();
 
 </script>
 </body>

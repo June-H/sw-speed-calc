@@ -97,6 +97,8 @@ input[type=checkbox] { width:18px; height:18px; accent-color: var(--accent); cur
 .fav-chip .fav-load:hover { background:rgba(210,153,34,.15); }
 .fav-chip .fav-del { color:var(--sub); padding:4px 8px; border-left:1px solid var(--border); }
 .fav-chip .fav-del:hover { color:var(--red); }
+.fav-chip.rec { border-color:var(--accent2); }
+.fav-chip.rec .fav-load:hover { background:rgba(88,166,255,.15); }
 .fav-note { font-size:0.8125rem; color:var(--sub); line-height:1.5; }
 
 /* Results */
@@ -155,6 +157,9 @@ tr:last-child td { border-bottom: none; }
   <!-- 즐겨찾기 덱 -->
   <div class="card">
     <div class="card-title">⭐ 즐겨찾기 덱</div>
+    <div class="fav-note" style="margin-bottom:6px">📌 추천 덱 <span style="font-size:0.75rem">(빈칸은 직접 골라 주세요)</span></div>
+    <div id="rec-list" class="fav-list"></div>
+    <div class="fav-note" style="margin-bottom:6px">⭐ 내 덱</div>
     <div id="fav-list" class="fav-list"></div>
     <div class="row" style="margin-bottom:0">
       <input type="text" id="fav-name" placeholder="덱 이름 (비우면 몬스터 이름)" style="flex:1;min-width:0">
@@ -491,6 +496,18 @@ const PRESETS = {
   },
   '불용병왕': {
     name: '불용병왕',
+    base: 103,
+    skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
+    notes: '스킬 효과 없음'
+  },
+  '풍극지': {
+    name: '풍극지',
+    base: 96,
+    skill: { gaugeAmt: 30, gaugeTgt: 'all', speedTgt: 'none' },
+    notes: '전체 30% 게업 부여'
+  },
+  '풍조커': {
+    name: '풍조커',
     base: 103,
     skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'none' },
     notes: '스킬 효과 없음'
@@ -837,6 +854,50 @@ function renderFavs() {
   list.querySelectorAll('.fav-load').forEach((b, i) => {
     b.textContent = `${favs[i].label} (${favs[i].mode === 'arena' ? '실레나' : '점령전'})`;
   });
+}
+
+// ── 추천 덱 (모두에게 같은 기본 조합, 삭제 불가) ──────
+// cards는 턴 순서(1·2·3순위)대로, ''는 사용자가 고를 빈칸. gaugeTgt는 1인 게업 대상을 순위로 지정
+const RECOMMENDED = [
+  { cards: ['물호박', '', '물무희'] },
+  { cards: ['물푸딩', '', '물무희'] },
+  { cards: ['빛늑인', '', '물무희'] },
+  { cards: ['암하그', '', '물무희'], gaugeTgt: { 1: 2 } },  // 암하그 게업은 2순위에게
+  { cards: ['풍극지', '물해적', ''] },
+  { cards: ['빛하피', '풍초코', '풍조커'] },
+];
+
+// 카드 번호 = 턴 순위로 채움. 콘텐츠·리더·토템은 사용자가 입력해 둔 값을 유지
+function applyRecommended(r) {
+  r.cards.forEach((name, i) => {
+    const set = (k, v) => { document.getElementById(`${k}-${i}`).value = v; };
+    set('turn', i + 1);
+    set('rn', ''); set('at', 0);
+    document.getElementById(`sw-${i}`).checked = false;
+    document.getElementById(`nl-${i}`).checked = false;
+    if (name) {
+      set('ps', name);
+      applyPreset(i, name);
+    } else {
+      ['ps', 'nm', 'bs'].forEach(k => set(k, ''));
+      set('ex', 0); set('ga', 0);
+      setSelectVal(`gt-${i}`, 'none');
+      setSelectVal(`st-${i}`, 'none');
+      showPresetNotes(i, null);
+      renderExtraOptions(i);
+    }
+  });
+  updateTurnOrder();
+  Object.entries(r.gaugeTgt || {}).forEach(([from, to]) => setSelectVal(`gt-${from - 1}`, String(to - 1)));
+  const blank = r.cards.indexOf('');
+  document.getElementById(blank >= 0 ? `ps-${blank}` : 'rn-0').focus();
+}
+
+function renderRecommended() {
+  const list = document.getElementById('rec-list');
+  list.innerHTML = RECOMMENDED.map((r, i) =>
+    `<span class="fav-chip rec"><button class="fav-load" onclick="applyRecommended(RECOMMENDED[${i}])">${r.cards.map(n => n || '?').join(' → ')}</button></span>`
+  ).join('');
 }
 
 // ── 덱 공유 링크 (#d=덱 정보) ─────────────────────
@@ -1250,6 +1311,7 @@ async function showSpeedTable() {
 
 // Init
 renderMonsters();
+renderRecommended();
 renderFavs();
 loadDeckFromUrl();
 

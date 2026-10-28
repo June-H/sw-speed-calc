@@ -101,6 +101,10 @@ input[type=checkbox] { width:18px; height:18px; accent-color: var(--accent); cur
 .fav-chip.rec .fav-load:hover { background:rgba(88,166,255,.15); }
 .fav-note { font-size:0.8125rem; color:var(--sub); line-height:1.5; }
 .fav-note b { color:var(--text); font-weight:600; }
+.arti-step { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+.arti-step input[type=number] { width:56px; padding:3px 6px; text-align:center; }
+.arti-step .step { width:26px; height:26px; border-radius:6px; border:1px solid var(--line); background:var(--card2); color:var(--text); font-size:1rem; line-height:1; cursor:pointer; }
+.arti-step .step:hover { border-color:var(--accent); }
 .share-box { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
 .share-head { font-size:0.875rem; font-weight:600; margin-bottom:4px; gap:4px; }
 
@@ -1213,6 +1217,20 @@ document.addEventListener('click', e => {
   row.after(text);
 });
 
+// ── 결과 표에서 아티 속버프% 바로 조정 ─────────────
+// 몬스터 카드의 아티 칸(at-i)과 값을 맞추고, 0.3초 동안 더 바뀌지 않으면 다시 계산
+let artiTimer = null;
+function setArti(i, value) {
+  document.getElementById(`at-${i}`).value = value;
+  clearTimeout(artiTimer);
+  artiTimer = setTimeout(() => calculate({ preview: true }), 300);
+}
+function stepArti(i, delta) {
+  const next = Math.min(100, Math.max(0, (+document.getElementById(`at-${i}`).value || 0) + delta));
+  document.getElementById(`sa-${i}`).value = next;
+  setArti(i, next);
+}
+
 // ── 입력 검증 ──────────────────────────────
 function showErrors(errors) {
   const box = document.getElementById('input-errors');
@@ -1256,8 +1274,11 @@ function validateInputs() {
 // 잘못된 칸을 고치기 시작하면 빨간 표시를 지움
 document.addEventListener('input', e => e.target.classList?.remove('invalid'));
 
-async function calculate() {
+// preview: 결과 표에서 값을 바꿨을 때 다시 계산만 함 (결과로 스크롤하지 않고, DB 기록도 남기지 않음)
+let calcSeq = 0;
+async function calculate({ preview = false } = {}) {
   if (!validateInputs()) return;
+  const seq = ++calcSeq;
   const payload = buildPayload();
   const { ldr, tot } = payload;
   document.getElementById('speed-table').innerHTML = '';
@@ -1274,6 +1295,7 @@ async function calculate() {
     showErrors(['계산 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.']);
     return;
   }
+  if (seq !== calcSeq) return;  // 더 최근 계산이 있으면 늦게 온 결과는 버림
   if (result.error) {
     showErrors([result.error]);
     return;
@@ -1310,7 +1332,13 @@ async function calculate() {
       <td style="font-weight:600">${r.name}</td>
       <td style="color:var(--sub)">${r.Ti}틱</td>
       <td style="color:var(--sub)">${r.bonus > 0 ? '+'+r.bonus+'%' : '-'}</td>
-      <td style="color:var(--sub)">${r.arti !== undefined ? r.arti+'%' : '-'}</td>
+      <td>${r.buffed
+        ? `<span class="arti-step">
+            <button type="button" class="step" id="sa-dn-${r.idx}" onclick="stepArti(${r.idx}, -1)" aria-label="아티 1% 내리기">−</button>
+            <input type="number" id="sa-${r.idx}" value="${r.arti}" min="0" max="100" aria-label="아티 속버프%" oninput="setArti(${r.idx}, this.value)">
+            <button type="button" class="step" id="sa-up-${r.idx}" onclick="stepArti(${r.idx}, 1)" aria-label="아티 1% 올리기">+</button>
+          </span>`
+        : '<span style="color:var(--sub)">– (속버프 없음)</span>'}</td>
       <td><span class="min-rune-val">${r.minRune}</span></td>
     </tr>`;
   });
@@ -1324,7 +1352,10 @@ async function calculate() {
       ⚠️ 이 조합으로는 설정한 턴 순서를 맞출 수 없습니다. 실제 순서: ${result.actualOrder.join(' → ')}
     </p>`;
   }
+  // 다시 그려도 조정 중이던 아티 칸·버튼에 포커스 유지
+  const activeId = summaryDiv.contains(document.activeElement) ? document.activeElement.id : '';
   summaryDiv.innerHTML = html;
+  if (activeId) document.getElementById(activeId)?.focus();
 
   // ── 스탯 테이블 렌더 ──
   const sb = document.getElementById('stat-body');
@@ -1383,6 +1414,7 @@ async function calculate() {
   });
 
   renderOrderCompare(payload, result);
+  if (preview) return;
 
   // 한 줄 레이아웃(모바일)에서는 결과가 입력 아래에 있으므로 바로 이동
   if (window.matchMedia('(max-width:900px)').matches) {

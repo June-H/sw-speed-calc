@@ -317,7 +317,8 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     const baseContrib = ally.base * mult + swRaw - swCeil;
     let minRune = Math.max(0, Math.ceil(minSpeed - extra - baseContrib));
 
-    return { name: ally.name, Ti: estimatedTi, bonus, minSpeed, minRune, arti: ally.arti };
+    // idx·buffed: 결과 표에서 아티를 바로 조정할 때 어느 카드인지, 아티가 결과에 영향이 있는지(선턴 속버프 대상) 표시용
+    return { name: ally.name, idx: ally.idx, buffed: getsSpeedBuff, Ti: estimatedTi, bonus, minSpeed, minRune, arti: ally.arti };
   });
 
   // 순서 검증 (summary)

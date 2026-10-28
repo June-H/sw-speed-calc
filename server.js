@@ -80,8 +80,8 @@ function simulate(allies, enemySpd, tickRate, maxTicks) {
   ];
   let gauges = entities.map(() => 0);
   const events = [];
-  // 게이지 동률이면 아군 먼저, 아군끼리는 지정한 턴 순서대로
-  const winsTie = (a, b) => a.isAlly && (!b.isAlly || a.turn < b.turn);
+  // 게이지 동률이면 아군 먼저, 아군끼리는 몬1→몬2→몬3 (게임 시스템 규칙)
+  const winsTie = (a, b) => a.isAlly && (!b.isAlly || a.idx < b.idx);
 
   for (let tick = 1; tick <= maxTicks; tick++) {
     for (let i = 0; i < entities.length; i++) gauges[i] += entities[i].curSpd * tickRate;
@@ -126,6 +126,11 @@ function simulate(allies, enemySpd, tickRate, maxTicks) {
 function gaugeAt(speed, arti, buffed, T1, T, bonus, tr) {
   const buffTicks = buffed ? Math.max(0, T - T1) : 0;
   return speed * tr * (T - buffTicks) + calcBuff(speed, arti) * tr * buffTicks + bonus;
+}
+
+// 아군 a가 같은 틱에 아군 b보다 먼저 턴을 받는지 (동률이면 몬1→몬2→몬3)
+function allyGoesFirst(gaugeA, a, gaugeB, b) {
+  return gaugeA > gaugeB + 1e-6 || (Math.abs(gaugeA - gaugeB) < 1e-6 && a.idx < b.idx);
 }
 
 function minRuneAnalysis(ally, totalBonus, enemySpd, targetTick, tickRate, ldr, tot) {
@@ -240,11 +245,11 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     const buffedByLead = a => lead1stGivesSpeedBuff && (first.sTgt === 'all' || parseInt(first.sTgt) === a.idx);
     const gauge3 = gaugeAt(ally3.speed, ally3.arti, buffedByLead(ally3), firstTick, targetTick2, bonus3ForOrdering, tr);
 
-    // 동률이면 턴 순서대로 움직이므로 2순위는 3순위와 같기만 하면 됨
+    // 2순위가 3순위보다 먼저 턴을 받을 때까지 뒷속을 올림
     const extra2 = PRESETS_EXTRA[ally2.name] || 0;
     const speed2Of = r => calcSpeed(ally2.base, r, ally2.swift, ldrOf(ally2), tot) + extra2;
     let fixedRune = ally2.rune;
-    while (gaugeAt(speed2Of(fixedRune), ally2.arti, buffedByLead(ally2), firstTick, targetTick2, bonus2, tr) < gauge3 - 1e-6) fixedRune++;
+    while (!allyGoesFirst(gaugeAt(speed2Of(fixedRune), ally2.arti, buffedByLead(ally2), firstTick, targetTick2, bonus2, tr), ally2, gauge3, ally3)) fixedRune++;
     if (fixedRune !== ally2.rune) {
       ally2.rune = fixedRune;
       ally2.speed = speed2Of(fixedRune);
@@ -314,9 +319,9 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
     const tTick2 = minRuneSummary[0].Ti;
     const g3 = gaugeAt(speedOf(a3, minRuneSummary[1].minRune), a3.arti, buffedByLead(a3), T1, tTick2, b3ord, tr);
 
-    // 동률이면 턴 순서대로 움직이므로 2순위는 3순위와 같기만 하면 됨
+    // 2순위가 3순위보다 먼저 턴을 받을 때까지 뒷속을 올림
     let rune2 = minRuneSummary[0].minRune;
-    while (gaugeAt(speedOf(a2, rune2), a2.arti, buffedByLead(a2), T1, tTick2, b2, tr) < g3 - 1e-6) rune2++;
+    while (!allyGoesFirst(gaugeAt(speedOf(a2, rune2), a2.arti, buffedByLead(a2), T1, tTick2, b2, tr), a2, g3, a3)) rune2++;
     if (rune2 !== minRuneSummary[0].minRune) {
       minRuneSummary[0].minRune = rune2;
       minRuneSummary[0].minSpeed = speedOf(a2, rune2);

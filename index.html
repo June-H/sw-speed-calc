@@ -60,7 +60,10 @@ input[type=checkbox] { width:15px; height:15px; accent-color: var(--accent); cur
 }
 .calc-btn:hover { opacity: .85; }
 
-.mini-btn { background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 12px; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+.ex-opts { display:inline-flex; gap:4px; flex-wrap:wrap; margin-left:6px; }
+.ex-chip { background:transparent; border:1px solid var(--border); color:var(--sub); border-radius:999px; padding:2px 8px; font-size:0.72rem; cursor:pointer; }
+.ex-chip.on { border-color:var(--accent); color:var(--text); background:rgba(124,111,247,.15); }
+.mini-btn {background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 12px; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
 .mini-btn:hover { border-color:var(--accent); }
 .fav-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
 .fav-chip { display:inline-flex; border:1px solid var(--yellow); border-radius:999px; overflow:hidden; }
@@ -307,7 +310,8 @@ const PRESETS = {
     base: 101,
     skill: { gaugeAmt: 0, gaugeTgt: 'none', speedTgt: 'all' },
     notes: '전체 속버프 부여, 의보로 추가되는 공속 따로 입력하지 말고 뒷속만 입력',
-    extraSpeedBonus: 39.5
+    extraSpeedBonus: 39.5,
+    extraOptions: [ { label: '의보', value: 39.5 }, { label: '의지만', value: 19.7 }, { label: '없음', value: 0 } ]
   },
   '물헬하': {
     name: '물헬하',
@@ -572,8 +576,8 @@ function renderMonsters() {
     </div>
     <div class="m-row">
       <span class="m-lbl">추가 공속</span>
-      <input type="number" id="ex-${i}" value="0" min="0" step="0.5">
-      <span style="font-size:0.75rem;color:var(--sub);margin-left:8px">(물호박 의보 등 특수 보정)</span>
+      <input type="number" id="ex-${i}" value="0" min="0" step="0.1" oninput="renderExtraOptions(${i})">
+      <span id="exo-${i}" class="ex-opts"></span>
     </div>
     <div class="m-row">
       <span class="m-lbl">리더 효과 X</span>
@@ -603,6 +607,7 @@ function renderMonsters() {
   // Set default select values
   defaults.forEach((d,i) => {
     document.getElementById(`ps-${i}`).value = '직접 입력';
+    renderExtraOptions(i);
     setSelectVal(`gt-${i}`, d.gTgt);
     setSelectVal(`st-${i}`, d.sTgt);
   });
@@ -670,6 +675,27 @@ function applyPreset(idx, name) {
   }
 
   showPresetNotes(idx, p);
+  renderExtraOptions(idx);
+}
+
+// 추가 공속 선택 버튼 (예: 물호박 의보/의지만) — 프리셋에 extraOptions가 있을 때만
+function renderExtraOptions(idx) {
+  const box = document.getElementById(`exo-${idx}`);
+  const p = PRESETS[document.getElementById(`nm-${idx}`).value];
+  const opts = (p && p.extraOptions) || [];
+  if (!opts.length) {
+    box.innerHTML = '<span style="font-size:0.75rem;color:var(--sub)">(물호박 의보 등 특수 보정)</span>';
+    return;
+  }
+  const cur = +document.getElementById(`ex-${idx}`).value;
+  box.innerHTML = opts.map(o =>
+    `<button type="button" class="ex-chip ${o.value === cur ? 'on' : ''}" onclick="setExtra(${idx}, ${o.value})">${o.label}${o.value ? ' +' + o.value : ''}</button>`
+  ).join('');
+}
+
+function setExtra(idx, value) {
+  document.getElementById(`ex-${idx}`).value = value;
+  renderExtraOptions(idx);
 }
 
 function showPresetNotes(idx, p) {
@@ -716,6 +742,7 @@ function setFormState(s) {
     const p = PRESETS[c.nm];
     document.getElementById(`ps-${i}`).value = p ? c.nm : '직접 입력';
     showPresetNotes(i, p);
+    renderExtraOptions(i);
   });
   updateTurnOrder();
   // 선턴 뒷속 칸으로 바로 이동

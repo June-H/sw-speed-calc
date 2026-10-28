@@ -162,15 +162,24 @@ tr:last-child td { border-bottom: none; }
     <div class="fav-note" style="margin-bottom:6px">⭐ 내 덱</div>
     <div id="fav-list" class="fav-list"></div>
     <div class="row" style="margin-bottom:0">
-      <input type="text" id="fav-name" placeholder="덱 이름 (비우면 몬스터 이름)" style="flex:1;min-width:0">
+      <input type="text" id="fav-name" maxlength="40" placeholder="덱 이름 (비우면 몬스터 이름)" style="flex:1;min-width:0">
       <button class="mini-btn" onclick="saveFav()">☆ 현재 덱 저장</button>
     </div>
+    <p id="fav-msg" class="fav-note" role="status" style="color:var(--red);margin-top:6px"></p>
     <div class="row" style="margin:8px 0 0">
       <button class="mini-btn" onclick="copyShareLink()">🔗 공유 링크 복사</button>
       <span id="share-msg" class="fav-note" role="status"></span>
     </div>
     <input type="text" id="share-url" readonly style="display:none;width:100%;margin-top:6px" onclick="this.select()">
-    <p class="fav-note" style="margin-top:8px">즐겨찾기는 이 브라우저에만 저장됩니다. 다른 기기·브라우저(카톡 안 브라우저 포함)에서 쓰거나 남에게 보내려면 공유 링크를 복사해 두세요.</p>
+    <div class="row" style="margin:8px 0 0">
+      <button class="mini-btn" onclick="uploadFavs()">☁️ 내 덱 서버에 저장</button>
+      <span id="sync-msg" class="fav-note" role="status"></span>
+    </div>
+    <div class="row" style="margin:6px 0 0">
+      <input type="text" id="sync-code" placeholder="저장 코드 (예: K7P2Q-X9MAB)" autocomplete="off" style="flex:1;min-width:0">
+      <button class="mini-btn" onclick="restoreFavs()">코드로 불러오기</button>
+    </div>
+    <p class="fav-note" style="margin-top:8px">내 덱은 이 브라우저에만 저장됩니다. 다른 기기·브라우저(시크릿 탭, 카톡 안 브라우저 포함)에서 쓰려면 ☁️ 서버에 저장해 받은 코드로 불러오세요. 코드를 아는 사람은 누구나 불러오고 고칠 수 있으니 남에게는 공유 링크를 보내세요.</p>
   </div>
 
   <!-- 전투 설정 -->
@@ -784,6 +793,7 @@ function showPresetNotes(idx, p) {
 
 // ── 즐겨찾기 덱 (이 브라우저에만 저장) ──────────────
 const FAV_KEY = 'spdcalc_favorites';
+const FAV_MAX = 50;  // server.js의 FAV_MAX와 같게 유지
 const CARD_FIELDS = { turn:'value', nm:'value', bs:'value', rn:'value', ex:'value', at:'value',
                       ga:'value', gt:'value', st:'value', sw:'checked', nl:'checked' };
 
@@ -828,17 +838,27 @@ function saveFav() {
   const state = getFormState();
   const nameEl = document.getElementById('fav-name');
   const byTurn = [...state.cards].sort((a, b) => a.turn - b.turn).map(c => c.nm || '?');
-  state.label = nameEl.value.trim() || byTurn.join(' · ');
-  storeFavs([state, ...loadFavs()].slice(0, 20));
+  state.label = (nameEl.value.trim() || byTurn.join(' · ')).slice(0, 40);
+  const favs = loadFavs();
+  const msg = document.getElementById('fav-msg');
+  if (favs.length >= FAV_MAX) {
+    msg.textContent = `내 덱은 최대 ${FAV_MAX}개까지 저장할 수 있습니다. 안 쓰는 덱을 × 로 지운 뒤 다시 저장해 주세요.`;
+    return;
+  }
+  msg.textContent = '';
+  storeFavs([state, ...favs]);
   nameEl.value = '';
   renderFavs();
+  autoSyncFavs();
 }
 
 function deleteFav(i) {
   const favs = loadFavs();
   favs.splice(i, 1);
   storeFavs(favs);
+  document.getElementById('fav-msg').textContent = '';
   renderFavs();
+  autoSyncFavs();
 }
 
 function renderFavs() {
@@ -854,6 +874,138 @@ function renderFavs() {
   list.querySelectorAll('.fav-load').forEach((b, i) => {
     b.textContent = `${favs[i].label} (${favs[i].mode === 'arena' ? '실레나' : '점령전'})`;
   });
+}
+
+// ── 즐겨찾기 저장 코드 (서버) ───────────────────────
+// 코드를 받은 뒤에는 서버가 기준: 페이지를 열 때 서버 목록으로 바꾸고, 저장·삭제할 때마다 같은 코드로 자동 갱신
+const SYNC_KEY = 'spdcalc_sync_code';
+function getSyncCode() { try { return localStorage.getItem(SYNC_KEY) || ''; } catch { return ''; } }
+function setSyncCode(code) { try { localStorage.setItem(SYNC_KEY, code); } catch {} }
+
+function syncMsg(text, isErr) {
+  const el = document.getElementById('sync-msg');
+  el.textContent = text;
+  el.style.color = isErr ? 'var(--red)' : '';
+}
+function showSyncCode() {
+  const code = getSyncCode();
+  if (code) syncMsg(`저장 코드 ${code} · 내 덱을 바꾸면 자동 저장`);
+}
+
+// 서버에서 받은 값은 누구나 만들 수 있으므로 공유 링크와 같은 방식으로 정리
+function sanitizeFav(f) {
+  if (!f || !Array.isArray(f.cards) || f.cards.length !== 3) return null;
+  const str = v => String(v ?? '').slice(0, 40);
+  return {
+    mode: f.mode === 'arena' ? 'arena' : 'siege',
+    leader: str(f.leader), totem: str(f.totem),
+    cards: f.cards.map(c => Object.fromEntries(
+      CARD_KEYS.map(k => [k, CARD_FIELDS[k] === 'checked' ? !!(c && c[k]) : str(c && c[k])])
+    )),
+    label: str(f.label) || '이름 없는 덱',
+  };
+}
+
+// 서버로 보낼 때도 같은 형식으로 정리해, 다시 받아 왔을 때 값이 달라지지 않게 함
+function favsForUpload(favs = loadFavs()) { return favs.map(sanitizeFav).filter(Boolean); }
+
+// 네트워크 오류("Failed to fetch" 등)는 알아보기 쉬운 문구로 바꿈
+async function fetchSync(url, opts) {
+  try { return await fetch(url, opts); }
+  catch { throw new Error('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.'); }
+}
+
+async function postFavs(code, favs = favsForUpload()) {
+  const res = await fetchSync('/api/favorites', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: code || undefined, favs }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || '서버에 저장하지 못했습니다.'), { status: res.status });
+  return data.code;
+}
+
+// 업로드는 한 번에 하나씩 순서대로 보냄 (저장 직후 삭제할 때 요청 도착 순서가 뒤바뀌어 삭제가 되살아나는 것 방지)
+let uploadQueue = Promise.resolve();
+function enqueueUpload(task) {
+  const run = uploadQueue.then(task);
+  uploadQueue = run.catch(() => {});
+  return run;
+}
+
+// 사용자의 동기화 작업마다 번호를 올림. 늦게 도착한 이전 작업의 결과(목록 교체, 메시지)는 버림
+let syncGen = 0;
+const isCurrent = gen => gen === syncGen;
+
+async function uploadFavs() {
+  const gen = ++syncGen;
+  if (!loadFavs().length) return syncMsg('저장할 내 덱이 없습니다. 먼저 ☆ 현재 덱 저장을 눌러 주세요.', true);
+  syncMsg('저장 중...');
+  try {
+    const code = await enqueueUpload(async () => {
+      try { return await postFavs(getSyncCode()); }
+      catch (e) { if (e.status !== 404) throw e; return postFavs(); }  // 코드가 서버에 없으면 새로 발급
+    });
+    setSyncCode(code);
+    document.getElementById('sync-code').value = code;
+    if (isCurrent(gen)) syncMsg(`저장했습니다. 저장 코드 ${code} 를 메모해 두세요.`);
+  } catch (e) { if (isCurrent(gen)) syncMsg(e.message, true); }
+}
+
+function autoSyncFavs() {
+  const gen = ++syncGen;
+  if (!getSyncCode()) return;
+  // 보낼 목록은 차례가 왔을 때의 최신 목록
+  enqueueUpload(() => postFavs(getSyncCode()))
+    .then(() => { if (isCurrent(gen)) showSyncCode(); },
+          e => { if (isCurrent(gen)) syncMsg(`자동 저장 실패: ${e.message}`, true); });
+}
+
+// 페이지를 열 때 서버의 최신 내 덱으로 이 브라우저의 목록을 바꿈 (다른 기기에서 추가·삭제한 것 반영)
+// 응답 전에 사용자가 저장·삭제·불러오기를 했다면 그 결과를 지키기 위해 반영하지 않음
+async function pullFavsOnOpen() {
+  const code = getSyncCode();
+  if (!code) return;
+  const gen = syncGen;
+  syncMsg('서버에서 최신 내 덱을 확인하는 중...');
+  try {
+    const res = await fetchSync(`/api/favorites/${encodeURIComponent(code)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '서버에 연결하지 못했습니다.');
+    if (!isCurrent(gen) || getSyncCode() !== code) return;
+    storeFavs(favsForUpload(Array.isArray(data.favs) ? data.favs : []).slice(0, FAV_MAX));
+    renderFavs();
+    showSyncCode();
+  } catch (e) {
+    if (isCurrent(gen)) syncMsg(`최신 내 덱을 가져오지 못해 이 브라우저에 저장된 목록을 보여 줍니다. (${e.message})`, true);
+  }
+}
+
+// 처음 코드를 입력할 때: 서버의 내 덱을 이 브라우저의 내 덱과 합침 (같은 덱은 하나만, 최대 FAV_MAX개)
+async function restoreFavs() {
+  const gen = ++syncGen;
+  const code = document.getElementById('sync-code').value.trim();
+  if (!code) return syncMsg('저장 코드를 입력해 주세요.', true);
+  syncMsg('불러오는 중...');
+  try {
+    const res = await fetchSync(`/api/favorites/${encodeURIComponent(code)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '불러오지 못했습니다.');
+    const seen = new Set();
+    const merged = favsForUpload([...(Array.isArray(data.favs) ? data.favs : []), ...loadFavs()])
+      .filter(f => !seen.has(JSON.stringify(f)) && seen.add(JSON.stringify(f)));
+    // 합쳐서 최대 개수를 넘으면 아무것도 바꾸지 않고 안내 (몰래 버리지 않음)
+    if (merged.length > FAV_MAX) {
+      return syncMsg(`합치면 ${merged.length}개라 최대 ${FAV_MAX}개를 넘습니다. 이 브라우저의 내 덱을 ${merged.length - FAV_MAX}개 이상 지운 뒤 다시 불러와 주세요.`, true);
+    }
+    // 서버 저장이 성공한 뒤에만 이 브라우저의 목록과 코드를 바꿈 (실패하면 이 브라우저에만 있던 덱을 잃지 않게)
+    await enqueueUpload(() => postFavs(data.code, merged));
+    storeFavs(merged);
+    setSyncCode(data.code);
+    document.getElementById('sync-code').value = data.code;
+    renderFavs();
+    if (isCurrent(gen)) syncMsg(`내 덱 ${merged.length}개를 불러왔습니다. 저장 코드 ${data.code}`);
+  } catch (e) { if (isCurrent(gen)) syncMsg(e.message, true); }
 }
 
 // ── 추천 덱 (모두에게 같은 기본 조합, 삭제 불가) ──────
@@ -1315,6 +1467,8 @@ async function showSpeedTable() {
 renderMonsters();
 renderRecommended();
 renderFavs();
+document.getElementById('sync-code').value = getSyncCode();
+pullFavsOnOpen();
 loadDeckFromUrl();
 // 이미 이 페이지가 열린 탭에 공유 링크를 붙여 넣으면 새로고침 없이 # 뒤만 바뀌므로 따로 처리
 window.addEventListener('hashchange', loadDeckFromUrl);

@@ -1,6 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +40,13 @@ async function initDB() {
       monsters  JSONB,
       min_runes JSONB,
       notes     TEXT
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fav_sync (
+      code       TEXT PRIMARY KEY,
+      favs       JSONB NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
   console.log('DB initialized');
@@ -513,6 +521,115 @@ app.delete('/api/records/:id', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── 즐겨찾기 저장 코드 ─────────────────────────────────────────
+// 로그인 없이 코드 하나로 다른 기기·브라우저에서 즐겨찾기를 불러옴. 코드를 아는 사람만 읽고 고칠 수 있음
+// 헷갈리는 0/O, 1/I 제외 32자 × 10자리 ≈ 50비트라 추측으로 맞히기 어려움
+const FAV_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const FAV_MAX = 50;
+
+function newFavCode() {
+  const s = [...crypto.randomBytes(10)].map(b => FAV_CODE_CHARS[b & 31]).join('');
+  return `${s.slice(0, 5)}-${s.slice(5)}`;
+}
+
+// 소문자·공백·하이픈 빠짐을 허용하고 'ABCDE-FGHJK' 형식으로 맞춤
+function normFavCode(code) {
+  const s = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return /^[A-HJ-NP-Z2-9]{10}$/.test(s) ? `${s.slice(0, 5)}-${s.slice(5)}` : null;
+}
+
+// index.html의 sanitizeFav와 같은 형식으로 정리 (카드 3장, 값은 40자 이하 문자열, 체크박스는 true/false)
+const FAV_CARD_FIELDS = ['turn', 'nm', 'bs', 'rn', 'ex', 'at', 'ga', 'gt', 'st'];
+const FAV_CARD_FLAGS = ['sw', 'nl'];
+function normFavs(favs) {
+  if (!Array.isArray(favs) || favs.length > FAV_MAX) return null;
+  const str = v => String(v ?? '').slice(0, 40);
+  const out = [];
+  for (const f of favs) {
+    if (!f || typeof f !== 'object' || !Array.isArray(f.cards) || f.cards.length !== 3) return null;
+    out.push({
+      mode: f.mode === 'arena' ? 'arena' : 'siege',
+      leader: str(f.leader), totem: str(f.totem),
+      cards: f.cards.map(c => {
+        const card = {};
+        FAV_CARD_FIELDS.forEach(k => { card[k] = str(c && c[k]); });
+        FAV_CARD_FLAGS.forEach(k => { card[k] = !!(c && c[k]); });
+        return card;
+      }),
+      label: str(f.label) || '이름 없는 덱',
+    });
+  }
+  return out;
+}
+
+// IP별 호출 횟수 제한 (서버 메모리, 재시작하면 초기화). Railway 프록시 뒤라 trust proxy로 실제 IP 사용
+app.set('trust proxy', 1);
+const rateBuckets = new Map();
+function rateLimit(name, max, windowMs) {
+  return (req, res, next) => {
+    const key = `${name}:${req.ip}`;
+    const now = Date.now();
+    const b = rateBuckets.get(key);
+    if (!b || now - b.start >= windowMs) rateBuckets.set(key, { start: now, count: 1 });
+    else if (++b.count > max) return res.status(429).json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
+    next();
+  };
+}
+// 오래된 기록 정리
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, b] of rateBuckets) if (now - b.start > 60 * 60 * 1000) rateBuckets.delete(k);
+}, 10 * 60 * 1000).unref();
+
+const HOUR = 60 * 60 * 1000;
+const favReadLimit   = rateLimit('fav-read', 60, 10 * 60 * 1000);  // 조회: 10분에 60번
+const favWriteLimit  = rateLimit('fav-write', 300, HOUR);           // 갱신: 1시간에 300번
+const favCreateLimit = rateLimit('fav-create', 10, HOUR);           // 새 코드 발급: 1시간에 10번
+
+app.get('/api/favorites/:code', favReadLimit, async (req, res) => {
+  const code = normFavCode(req.params.code);
+  if (!code) return res.status(400).json({ error: '저장 코드 형식이 올바르지 않습니다.' });
+  try {
+    const { rows } = await pool.query('SELECT favs FROM fav_sync WHERE code=$1', [code]);
+    if (!rows.length) return res.status(404).json({ error: '해당 저장 코드가 없습니다.' });
+    res.json({ code, favs: rows[0].favs });
+  } catch (e) {
+    console.error('GET /api/favorites failed:', e);
+    res.status(500).json({ error: '서버 오류로 불러오지 못했습니다.' });
+  }
+});
+
+// code가 있으면 그 코드의 즐겨찾기를 덮어쓰고, 없으면 새 코드를 발급
+app.post('/api/favorites', favWriteLimit, (req, res, next) => {
+  // 새 코드 발급은 더 엄격하게 제한
+  if (req.body && req.body.code) return next();
+  favCreateLimit(req, res, next);
+}, async (req, res) => {
+  const { code: rawCode } = req.body || {};
+  const favs = normFavs((req.body || {}).favs);
+  if (!favs) return res.status(400).json({ error: `즐겨찾기 형식이 올바르지 않습니다. (최대 ${FAV_MAX}개)` });
+  try {
+    if (rawCode) {
+      const code = normFavCode(rawCode);
+      if (!code) return res.status(400).json({ error: '저장 코드 형식이 올바르지 않습니다.' });
+      const { rowCount } = await pool.query(
+        'UPDATE fav_sync SET favs=$2, updated_at=NOW() WHERE code=$1', [code, JSON.stringify(favs)]);
+      if (!rowCount) return res.status(404).json({ error: '해당 저장 코드가 없습니다.' });
+      return res.json({ code });
+    }
+    for (let i = 0; i < 3; i++) {
+      const code = newFavCode();
+      const { rowCount } = await pool.query(
+        'INSERT INTO fav_sync (code, favs) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING', [code, JSON.stringify(favs)]);
+      if (rowCount) return res.json({ code });
+    }
+    res.status(500).json({ error: '저장 코드를 만들지 못했습니다. 다시 시도해 주세요.' });
+  } catch (e) {
+    console.error('POST /api/favorites failed:', e);
+    res.status(500).json({ error: '서버 오류로 저장하지 못했습니다.' });
   }
 });
 

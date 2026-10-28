@@ -100,6 +100,9 @@ input[type=checkbox] { width:18px; height:18px; accent-color: var(--accent); cur
 .fav-chip.rec { border-color:var(--accent2); }
 .fav-chip.rec .fav-load:hover { background:rgba(88,166,255,.15); }
 .fav-note { font-size:0.8125rem; color:var(--sub); line-height:1.5; }
+.fav-note b { color:var(--text); font-weight:600; }
+.share-box { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+.share-head { font-size:0.875rem; font-weight:600; margin-bottom:4px; gap:4px; }
 
 /* Results */
 .hidden { display: none; }
@@ -159,27 +162,36 @@ tr:last-child td { border-bottom: none; }
     <div class="card-title">⭐ 즐겨찾기 덱</div>
     <div class="fav-note" style="margin-bottom:6px">📌 추천 덱 <span style="font-size:0.75rem">(빈칸은 직접 골라 주세요)</span></div>
     <div id="rec-list" class="fav-list"></div>
-    <div class="fav-note" style="margin-bottom:6px">⭐ 내 덱</div>
+    <div class="fav-note" style="margin-bottom:6px">⭐ 내 덱 <span style="font-size:0.75rem">(이 브라우저에 저장됨)</span></div>
     <div id="fav-list" class="fav-list"></div>
     <div class="row" style="margin-bottom:0">
       <input type="text" id="fav-name" maxlength="40" placeholder="덱 이름 (비우면 몬스터 이름)" style="flex:1;min-width:0">
       <button class="mini-btn" onclick="saveFav()">☆ 현재 덱 저장</button>
     </div>
     <p id="fav-msg" class="fav-note" role="status" style="color:var(--red);margin-top:6px"></p>
-    <div class="row" style="margin:8px 0 0">
-      <button class="mini-btn" onclick="copyShareLink()">🔗 공유 링크 복사</button>
-      <span id="share-msg" class="fav-note" role="status"></span>
+
+    <!-- 공유 링크: 덱 1개를 남에게 / 저장 코드: 내 덱 전체를 내 기기끼리 -->
+    <div class="share-box">
+      <div class="row share-head">🔗 남에게 덱 보내기 · 공유 링크 <button type="button" class="help" data-help="shareLink" aria-label="도움말">?</button></div>
+      <p class="fav-note">지금 입력한 덱 <b>1개</b>를 링크로 만듭니다. 받은 사람은 덱을 불러올 수만 있고, 내 덱은 바뀌지 않습니다.</p>
+      <div class="row" style="margin:6px 0 0">
+        <button class="mini-btn" onclick="copyShareLink()">🔗 이 덱 공유 링크 복사</button>
+        <span id="share-msg" class="fav-note" role="status"></span>
+      </div>
+      <input type="text" id="share-url" readonly style="display:none;width:100%;margin-top:6px" onclick="this.select()">
     </div>
-    <input type="text" id="share-url" readonly style="display:none;width:100%;margin-top:6px" onclick="this.select()">
-    <div class="row" style="margin:8px 0 0">
-      <button class="mini-btn" onclick="uploadFavs()">☁️ 내 덱 서버에 저장</button>
-      <span id="sync-msg" class="fav-note" role="status"></span>
+    <div class="share-box">
+      <div class="row share-head">☁️ 내 기기끼리 옮기기 · 저장 코드 <button type="button" class="help" data-help="syncCode" aria-label="도움말">?</button></div>
+      <p class="fav-note">⭐ 내 덱 <b>전체</b>를 서버에 저장하고 코드를 받습니다. 다른 기기·브라우저(시크릿 탭, 카톡 안 브라우저 포함)에서 코드를 넣으면 같은 목록이 보입니다. <b>코드는 비밀번호처럼 나만 알고 있어야 합니다.</b></p>
+      <div class="row" style="margin:6px 0 0">
+        <button class="mini-btn" onclick="uploadFavs()">☁️ 내 덱 서버에 저장</button>
+        <span id="sync-msg" class="fav-note" role="status"></span>
+      </div>
+      <div class="row" style="margin:6px 0 0">
+        <input type="text" id="sync-code" placeholder="저장 코드 (예: K7P2Q-X9MAB)" autocomplete="off" style="flex:1;min-width:0">
+        <button class="mini-btn" onclick="restoreFavs()">코드로 불러오기</button>
+      </div>
     </div>
-    <div class="row" style="margin:6px 0 0">
-      <input type="text" id="sync-code" placeholder="저장 코드 (예: K7P2Q-X9MAB)" autocomplete="off" style="flex:1;min-width:0">
-      <button class="mini-btn" onclick="restoreFavs()">코드로 불러오기</button>
-    </div>
-    <p class="fav-note" style="margin-top:8px">내 덱은 이 브라우저에만 저장됩니다. 다른 기기·브라우저(시크릿 탭, 카톡 안 브라우저 포함)에서 쓰려면 ☁️ 서버에 저장해 받은 코드로 불러오세요. 코드를 아는 사람은 누구나 불러오고 고칠 수 있으니 남에게는 공유 링크를 보내세요.</p>
   </div>
 
   <!-- 전투 설정 -->
@@ -1173,6 +1185,8 @@ function buildPayload() {
 
 // ── 용어 도움말 (? 버튼을 누르면 해당 줄 아래에 설명 표시) ──
 const HELP = {
+  shareLink: '지금 화면에 입력한 덱 1개(콘텐츠·리더·토템·몬스터 3마리)를 주소에 담습니다. 서버에 저장하지 않으며, 받은 사람이 링크를 열면 입력칸만 채워집니다. 길드원에게 덱을 보내거나 덱 하나를 북마크해 둘 때 쓰세요. 덱을 고친 뒤에는 링크를 새로 복사해야 합니다.',
+  syncCode:  '⭐ 내 덱 목록 전체를 서버에 저장하고 코드를 받습니다. 다른 기기에서 코드를 한 번 넣으면, 이후로는 열 때마다 최신 목록을 가져오고 덱을 저장·삭제하면 자동으로 서버에 반영됩니다. 코드를 아는 사람은 내 덱을 고치거나 지울 수 있으니 남에게는 알려 주지 말고 공유 링크를 보내세요.',
   mode:      '점령전은 매 틱 게이지가 "합속 × 0.07"%씩, 실레나는 "합속 × 0.015"%씩 오릅니다. 예) 점령전 합속 300 → 매 틱 21%',
   leader:    '리더 스킬의 공속 증가 %입니다. 속성이 달라 리더 효과를 못 받는 몬스터는 카드에서 "리더 효과 X"를 체크하세요.',
   totem:     '길드 토템(공속) 효과 %입니다. 보통 15%입니다.',

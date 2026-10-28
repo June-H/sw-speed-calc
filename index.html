@@ -17,6 +17,17 @@ h1 { text-align: center; font-size: 1.5rem; padding: 12px 0 20px; background: li
 
 .layout { display: grid; grid-template-columns: 420px 1fr; gap: 16px; max-width: 1300px; margin: 0 auto; }
 @media(max-width:900px){ .layout { grid-template-columns: 1fr; } }
+.table-wrap { overflow-x: auto; }
+/* 모바일: 터치 영역 확대, iOS 입력 시 자동 확대 방지(16px), 좁은 줄 줄바꿈 */
+@media(max-width:600px){
+  body { padding: 12px; }
+  input[type=number], input[type=text], select { font-size: 16px; padding: 7px 8px; }
+  input[type=checkbox] { width: 22px; height: 22px; }
+  .m-row, .row { flex-wrap: wrap; }
+  .help { width: 22px; height: 22px; line-height: 20px; font-size: 0.75rem; }
+  .ex-chip, .fav-chip button { padding: 6px 12px; }
+  .seg button { padding: 9px 12px; }
+}
 
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
 .card-title { font-size: 0.82rem; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
@@ -31,6 +42,7 @@ input[type=number], input[type=text], select {
 input[type=number]:focus, input[type=text]:focus, select:focus { border-color: var(--accent); }
 input[type=number] { width: 80px; }
 input[type=text] { width: 120px; }
+input.invalid { border-color: var(--red); background: rgba(248,81,73,0.08); }
 input[type=checkbox] { width:15px; height:15px; accent-color: var(--accent); cursor:pointer; }
 
 .seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
@@ -50,7 +62,7 @@ input[type=checkbox] { width:15px; height:15px; accent-color: var(--accent); cur
 .skill-box { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .skill-title { font-size: 0.72rem; color: var(--sub); margin-bottom: 6px; }
 .skill-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.78rem; flex-wrap: wrap; }
-.skill-row select { width: 90px; font-size: 0.76rem; padding: 3px 5px; }
+.skill-row select { width: auto; max-width: 190px; font-size: 0.76rem; padding: 3px 5px; }
 .skill-row input[type=number] { width: 55px; font-size: 0.76rem; padding: 3px 5px; }
 
 .calc-btn {
@@ -60,6 +72,19 @@ input[type=checkbox] { width:15px; height:15px; accent-color: var(--accent); cur
 }
 .calc-btn:hover { opacity: .85; }
 
+.help { width:16px; height:16px; border-radius:50%; border:1px solid var(--border); background:transparent; color:var(--sub); font-size:0.65rem; line-height:14px; padding:0; cursor:pointer; vertical-align:middle; }
+.help:hover { border-color:var(--accent); color:var(--text); }
+.help-text { font-size:0.76rem; color:var(--text); background:rgba(124,111,247,.08); border-left:2px solid var(--accent); border-radius:6px; padding:6px 10px; margin:-2px 0 8px; line-height:1.5; }
+.cmp-wrap { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+@media(max-width:600px){ .cmp-wrap { grid-template-columns:1fr; } }
+.cmp-card { border:1px solid var(--border); border-radius:8px; padding:10px 12px; background:var(--card2); font-size:0.8rem; }
+.cmp-card.current { border-color:var(--accent); }
+.cmp-title { font-size:0.74rem; color:var(--sub); margin-bottom:4px; }
+.cmp-order { font-weight:600; margin-bottom:6px; }
+.cmp-row { display:flex; justify-content:space-between; padding:2px 0; color:var(--sub); }
+.cmp-row b { color:var(--accent2); }
+.cmp-total { border-top:1px solid var(--border); margin-top:4px; padding-top:5px; color:var(--text); }
+.cmp-warn { color:var(--red); font-size:0.74rem; margin-top:4px; }
 .ex-opts { display:inline-flex; gap:4px; flex-wrap:wrap; margin-left:6px; }
 .ex-chip { background:transparent; border:1px solid var(--border); color:var(--sub); border-radius:999px; padding:2px 8px; font-size:0.72rem; cursor:pointer; }
 .ex-chip.on { border-color:var(--accent); color:var(--text); background:rgba(124,111,247,.15); }
@@ -139,18 +164,18 @@ tr:last-child td { border-bottom: none; }
   <div class="card">
     <div class="card-title">⚙️ 전투 설정</div>
     <div class="row">
-      <span class="lbl">콘텐츠</span>
+      <span class="lbl">콘텐츠 <button type="button" class="help" data-help="mode" aria-label="도움말">?</button></span>
       <div class="seg">
-        <button class="on" id="btn-siege" onclick="setMode('siege')">점령전 (7%)</button>
-        <button id="btn-arena" onclick="setMode('arena')">실레나 (1.5%)</button>
+        <button class="on" id="btn-siege" onclick="setMode('siege')">점령전</button>
+        <button id="btn-arena" onclick="setMode('arena')">실레나</button>
       </div>
     </div>
     <div class="row">
-      <span class="lbl">아군 리더 공속</span>
+      <span class="lbl">아군 리더 공속 <button type="button" class="help" data-help="leader" aria-label="도움말">?</button></span>
       <input type="number" id="leader" value="33" min="0" max="60"> %
     </div>
     <div class="row">
-      <span class="lbl">토템 공속 효과</span>
+      <span class="lbl">토템 공속 효과 <button type="button" class="help" data-help="totem" aria-label="도움말">?</button></span>
       <input type="number" id="totem" value="15" min="0" max="30"> %
     </div>
   </div>
@@ -216,6 +241,9 @@ tr:last-child td { border-bottom: none; }
     ⚠️ 아군 1순위(선턴) 몹이 상대 선턴잡이보다 느립니다.
   </div>
 
+  <div id="input-errors" class="hidden"
+       style="padding:10px 12px;background:rgba(248,81,73,0.1);border:1px solid var(--red);border-radius:8px;color:var(--red);font-size:0.85rem;margin-bottom:12px;"></div>
+
   <button class="calc-btn" onclick="calculate()">📊 계산하기</button>
 </div>
 
@@ -225,16 +253,17 @@ tr:last-child td { border-bottom: none; }
   <div class="card">
     <div class="card-title">⚡ 필요 최저 뒷속 요약</div>
     <div id="min-rune-summary"></div>
+    <div id="order-compare"></div>
     <button class="mini-btn" style="margin-top:10px" onclick="showSpeedTable()">📋 공속계산표 (선턴 뒷속 ±10)</button>
     <div id="speed-table" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
     <div class="card-title">합속 및 기본 스텟</div>
-    <table><thead><tr>
+    <div class="table-wrap"><table style="min-width:420px"><thead><tr>
       <th>몬스터</th><th>합속</th><th>틱당 게이지</th><th>첫 턴 (틱)</th><th>속버프 후 합속</th>
     </tr></thead>
-    <tbody id="stat-body"></tbody></table>
+    <tbody id="stat-body"></tbody></table></div>
   </div>
 
   <div class="card">
@@ -535,8 +564,9 @@ const tgtOpts = (includeAll) =>
 
 function renderMonsters() {
   const presetKeys = Object.keys(PRESETS);
-  const sortedKeys = ['직접 입력', ...presetKeys.filter(k => k !== '직접 입력').sort()];
-  const presetOpts = sortedKeys.map(k => `<option>${k}</option>`).join('');
+  const sortedKeys = presetKeys.filter(k => PRESETS[k]).sort();
+  // 프리셋 검색 후보 (일부만 입력해도 브라우저가 후보를 보여줌)
+  const presetOpts = sortedKeys.map(k => `<option value="${k}" label="기본공속 ${PRESETS[k].base} · ${PRESETS[k].notes}"></option>`).join('');
   const defaults = [
     { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:1 },
     { name:'', base:0, rune:0, swift:false, arti:0, gAmt:0, gTgt:'none', sTgt:'none', turn:2 },
@@ -546,7 +576,7 @@ function renderMonsters() {
   <div class="monster-block">
     <h3>몬스터 ${i+1}</h3>
     <div class="m-row">
-      <span class="m-lbl">턴 순서</span>
+      <span class="m-lbl">턴 순서 <button type="button" class="help" data-help="turn" aria-label="도움말">?</button></span>
       <select id="turn-${i}" onchange="onTurnChange(${i})" style="width:100px">
         <option value="1" ${d.turn===1?'selected':''}>1순위</option>
         <option value="2" ${d.turn===2?'selected':''}>2순위</option>
@@ -554,59 +584,60 @@ function renderMonsters() {
       </select>
     </div>
     <div class="m-row">
-      <span class="m-lbl">프리셋</span>
-      <select id="ps-${i}" onchange="applyPreset(${i},this.value)">${presetOpts}</select>
+      <span class="m-lbl">프리셋 <button type="button" class="help" data-help="preset" aria-label="도움말">?</button></span>
+      <input type="text" id="ps-${i}" list="preset-list" placeholder="🔍 몬스터 검색 (예: 호박)" style="width:170px"
+             oninput="if (PRESETS[this.value]) applyPreset(${i}, this.value)">
     </div>
     <div id="notes-${i}" style="font-size:0.75rem;color:var(--sub);margin:8px 0;padding:6px 8px;background:rgba(88,166,255,0.05);border-radius:6px;border-left:2px solid var(--accent);display:none"></div>
     <div class="m-row">
       <span class="m-lbl">이름</span>
-      <input type="text" id="nm-${i}" value="${d.name}" style="width:110px">
+      <input type="text" id="nm-${i}" value="${d.name}" style="width:110px" oninput="refreshTargetLabels()">
     </div>
     <div class="m-row">
       <span class="m-lbl">기본공속</span>
       <input type="number" id="bs-${i}" value="${d.base}" min="1">
     </div>
     <div class="m-row">
-      <span class="m-lbl">뒷속 (표기)</span>
+      <span class="m-lbl">뒷속 (표기) <button type="button" class="help" data-help="rune" aria-label="도움말">?</button></span>
       <input type="number" id="rn-${i}" value="${d.rune}" min="0" ${d.turn!==1?'disabled':''} placeholder="자동 계산">
     </div>
     <div class="m-row">
-      <span class="m-lbl">신속 세트</span>
+      <span class="m-lbl">신속 세트 <button type="button" class="help" data-help="swift" aria-label="도움말">?</button></span>
       <input type="checkbox" id="sw-${i}" ${d.swift?'checked':''}>
     </div>
     <div class="m-row">
-      <span class="m-lbl">추가 공속</span>
+      <span class="m-lbl">추가 공속 <button type="button" class="help" data-help="extra" aria-label="도움말">?</button></span>
       <input type="number" id="ex-${i}" value="0" min="0" step="0.1" oninput="renderExtraOptions(${i})">
       <span id="exo-${i}" class="ex-opts"></span>
     </div>
     <div class="m-row">
-      <span class="m-lbl">리더 효과 X</span>
+      <span class="m-lbl">리더 효과 X <button type="button" class="help" data-help="noLeader" aria-label="도움말">?</button></span>
       <input type="checkbox" id="nl-${i}">
       <span style="font-size:0.75rem;color:var(--sub);margin-left:8px">(속성이 달라 리더 효과를 못 받음)</span>
     </div>
     <div class="m-row">
-      <span class="m-lbl">아티 속버프%</span>
+      <span class="m-lbl">아티 속버프% <button type="button" class="help" data-help="arti" aria-label="도움말">?</button></span>
       <input type="number" id="at-${i}" value="${d.arti}" min="0" max="100"> %
     </div>
     <div class="skill-box">
       <div class="skill-title">이 몬스터 턴에서 부여하는 스킬 효과</div>
       <div class="skill-row">
-        <span style="color:var(--sub)">게이지</span>
+        <span style="color:var(--sub)">게이지 <button type="button" class="help" data-help="gauge" aria-label="도움말">?</button></span>
         <input type="number" id="ga-${i}" value="${d.gAmt}" min="0" max="100" placeholder="%"> %
         <span style="color:var(--sub)">→</span>
         <select id="gt-${i}">${tgtOpts(true)}</select>
       </div>
       <div class="skill-row">
-        <span style="color:var(--sub)">속버프</span>
+        <span style="color:var(--sub)">속버프 <button type="button" class="help" data-help="speedBuff" aria-label="도움말">?</button></span>
         <span style="color:var(--sub)">→</span>
         <select id="st-${i}">${tgtOpts(true)}</select>
       </div>
     </div>
-  </div>`).join('');
+  </div>`).join('') + `<datalist id="preset-list">${presetOpts}</datalist>`;
 
   // Set default select values
   defaults.forEach((d,i) => {
-    document.getElementById(`ps-${i}`).value = '직접 입력';
+    document.getElementById(`ps-${i}`).value = '';
     renderExtraOptions(i);
     setSelectVal(`gt-${i}`, d.gTgt);
     setSelectVal(`st-${i}`, d.sTgt);
@@ -636,8 +667,25 @@ function onTurnChange(idx) {
   updateTurnOrder();
 }
 
+// 게이지·속버프 대상 선택지를 "이름 (몬1·2순위)" 형태로 갱신. 자기 자신은 선택 불가
+function refreshTargetLabels() {
+  const turns = getTurnOrder();
+  [0,1,2].forEach(i => {
+    ['gt', 'st'].forEach(prefix => {
+      [...document.getElementById(`${prefix}-${i}`).options].forEach(opt => {
+        const j = parseInt(opt.value);
+        if (isNaN(j)) return;
+        const name = document.getElementById(`nm-${j}`).value || `몬스터 ${j+1}`;
+        opt.textContent = `${name} (몬${j+1}·${turns[j]}순위)`;
+        opt.disabled = j === i;
+      });
+    });
+  });
+}
+
 function updateTurnOrder() {
   prevTurns = getTurnOrder();
+  refreshTargetLabels();
 
   // 뒷속 입력칸 활성/비활성화
   const newTurns = getTurnOrder();
@@ -676,6 +724,7 @@ function applyPreset(idx, name) {
 
   showPresetNotes(idx, p);
   renderExtraOptions(idx);
+  refreshTargetLabels();
 }
 
 // 추가 공속 선택 버튼 (예: 물호박 의보/의지만) — 프리셋에 extraOptions가 있을 때만
@@ -740,7 +789,7 @@ function setFormState(s) {
       if (k in c) document.getElementById(`${k}-${i}`)[prop] = c[k];
     });
     const p = PRESETS[c.nm];
-    document.getElementById(`ps-${i}`).value = p ? c.nm : '직접 입력';
+    document.getElementById(`ps-${i}`).value = p ? c.nm : '';
     showPresetNotes(i, p);
     renderExtraOptions(i);
   });
@@ -843,7 +892,79 @@ function buildPayload() {
   return { mode, ldr, tot, useEnemySpec, enemySpec, monsters: allies };
 }
 
+// ── 용어 도움말 (? 버튼을 누르면 해당 줄 아래에 설명 표시) ──
+const HELP = {
+  mode:      '점령전은 매 틱 게이지가 "합속 × 0.07"%씩, 실레나는 "합속 × 0.015"%씩 오릅니다. 예) 점령전 합속 300 → 매 틱 21%',
+  leader:    '리더 스킬의 공속 증가 %입니다. 속성이 달라 리더 효과를 못 받는 몬스터는 카드에서 "리더 효과 X"를 체크하세요.',
+  totem:     '길드 토템(공속) 효과 %입니다. 보통 15%입니다.',
+  turn:      '이 몬스터가 몇 번째로 턴을 받길 원하는지 정합니다. 다른 몬스터와 같은 순위를 고르면 서로 자리를 바꿉니다. 게임에서는 게이지가 같으면 몬1→몬2→몬3 순으로 턴을 받으므로, 계산기가 그만큼 뒷속을 보정합니다.',
+  preset:    '몬스터 이름 일부를 입력하면 후보가 나옵니다. 고르면 기본공속, 스킬 효과, 추가 공속이 자동으로 채워집니다. 목록에 없으면 비워두고 아래 칸을 직접 입력하세요.',
+  rune:      '게임 몬스터 정보에서 공속 옆에 +로 표시되는 값(룬 공속)을 그대로 입력합니다. 1순위만 입력하고, 2·3순위는 계산기가 필요한 값을 구합니다.',
+  swift:     '신속 세트를 착용했다면 체크하세요. 표기 뒷속에 포함된 신속 보너스(기본공속의 25%) 반올림 오차를 보정합니다.',
+  extra:     '룬·리더·토템 외에 추가로 붙는 공속입니다. 예) 물호박 의지·보호 효과. 프리셋을 고르면 자동으로 채워집니다.',
+  noLeader:  '속성이 달라 리더 스킬의 공속 효과를 받지 못하는 몬스터면 체크하세요. 이 몬스터는 리더 % 없이 계산합니다.',
+  arti:      '속도 버프 효과를 강화하는 아티팩트 부옵션 수치(%)입니다. 속버프를 받는 몬스터에만 영향이 있습니다.',
+  gauge:     '이 몬스터가 턴을 잡았을 때 스킬로 올려주는 공격 게이지(%)와 대상입니다.',
+  speedBuff: '이 몬스터가 턴을 잡았을 때 거는 공격 속도 증가 버프(+30%)의 대상입니다.',
+};
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.help');
+  if (!btn) return;
+  const row = btn.closest('.row, .m-row, .skill-row');
+  const next = row.nextElementSibling;
+  if (next && next.classList.contains('help-text')) { next.remove(); return; }
+  const text = document.createElement('div');
+  text.className = 'help-text';
+  text.textContent = HELP[btn.dataset.help];
+  row.after(text);
+});
+
+// ── 입력 검증 ──────────────────────────────
+function showErrors(errors) {
+  const box = document.getElementById('input-errors');
+  box.replaceChildren(...errors.map(e => {
+    const line = document.createElement('div');
+    line.textContent = `⚠️ ${e}`;
+    return line;
+  }));
+  box.classList.toggle('hidden', errors.length === 0);
+}
+
+function validateInputs() {
+  const errors = [];
+  document.querySelectorAll('input.invalid').forEach(el => el.classList.remove('invalid'));
+  const val = id => document.getElementById(id).value;
+  const mark = (id, msg) => { document.getElementById(id).classList.add('invalid'); errors.push(msg); };
+
+  if (+val('leader') < 0) mark('leader', '아군 리더 공속은 0 이상이어야 합니다.');
+  if (+val('totem') < 0)  mark('totem', '토템 공속 효과는 0 이상이어야 합니다.');
+
+  const turns = getTurnOrder();
+  [0,1,2].forEach(i => {
+    const name = val(`nm-${i}`) || `몬스터 ${i+1}`;
+    if (!(+val(`bs-${i}`) > 0)) mark(`bs-${i}`, `${name}: 기본공속을 입력해 주세요.`);
+    if (turns[i] === 1 && val(`rn-${i}`) === '') mark(`rn-${i}`, `${name}: 선턴(1순위) 뒷속을 입력해 주세요.`);
+    if (+val(`rn-${i}`) < 0) mark(`rn-${i}`, `${name}: 뒷속은 0 이상이어야 합니다.`);
+    if (+val(`ex-${i}`) < 0) mark(`ex-${i}`, `${name}: 추가 공속은 0 이상이어야 합니다.`);
+    if (+val(`at-${i}`) < 0) mark(`at-${i}`, `${name}: 아티 속버프%는 0 이상이어야 합니다.`);
+    if (+val(`ga-${i}`) < 0 || +val(`ga-${i}`) > 100) mark(`ga-${i}`, `${name}: 게이지는 0~100% 사이여야 합니다.`);
+  });
+
+  if (useEnemySpec) {
+    if (eMode === 'direct' && !(+val('e-spd') > 0)) mark('e-spd', '상대 합속을 입력해 주세요.');
+    if (eMode === 'calc' && !(+val('e-base') > 0)) mark('e-base', '상대 기본공속을 입력해 주세요.');
+  }
+
+  showErrors(errors);
+  return errors.length === 0;
+}
+
+// 잘못된 칸을 고치기 시작하면 빨간 표시를 지움
+document.addEventListener('input', e => e.target.classList?.remove('invalid'));
+
 async function calculate() {
+  if (!validateInputs()) return;
   const payload = buildPayload();
   const { ldr, tot } = payload;
   document.getElementById('speed-table').innerHTML = '';
@@ -857,7 +978,11 @@ async function calculate() {
     });
     result = await res.json();
   } catch (e) {
-    alert('계산 중 오류가 발생했습니다.');
+    showErrors(['계산 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.']);
+    return;
+  }
+  if (result.error) {
+    showErrors([result.error]);
     return;
   }
 
@@ -883,7 +1008,7 @@ async function calculate() {
     <span class="sum-chip ${margin > 0 ? 'ok' : 'warn'}">선턴 여유 <b>${margin > 0 ? '+' + margin : margin}</b>${margin === 0 ? ' (동속, 아군 우선)' : ''}</span>
     <span class="sum-chip ${result.orderBroken ? 'fail' : 'ok'}">${result.orderBroken ? '✗ 턴 순서 불가' : '✓ 턴 순서 OK'}</span>
   </div>
-  <table class="min-rune-table">
+  <div class="table-wrap"><table class="min-rune-table" style="min-width:420px">
     <thead><tr>
       <th>몬스터</th><th>목표 틱</th><th>게이지 보너스</th><th>아티 속버프%</th><th>필요 최저 뒷속</th>
     </tr></thead><tbody>`;
@@ -896,7 +1021,7 @@ async function calculate() {
       <td><span class="min-rune-val">${r.minRune}</span></td>
     </tr>`;
   });
-  html += `</tbody></table>
+  html += `</tbody></table></div>
     <p class="min-rune-note">
       📌 기준: <strong>${result.leadName}</strong> (${result.T1}틱) 기준으로 계산.
       각 몬스터가 설정한 턴 순서대로 턴을 잡기 위한 최소 뒷속입니다.
@@ -964,6 +1089,13 @@ async function calculate() {
     an.appendChild(div);
   });
 
+  renderOrderCompare(payload, result);
+
+  // 한 줄 레이아웃(모바일)에서는 결과가 입력 아래에 있으므로 바로 이동
+  if (window.matchMedia('(max-width:900px)').matches) {
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+  }
+
   // DB 저장
   fetch('/api/records', {
     method: 'POST',
@@ -975,8 +1107,46 @@ async function calculate() {
   }).catch(() => {});
 }
 
+// ── 2·3순위 순서 비교: 지금 순서와 2·3순위를 맞바꾼 순서의 필요 뒷속을 나란히 표시 ──
+async function renderOrderCompare(payload, result) {
+  const box = document.getElementById('order-compare');
+  box.innerHTML = '';
+  const swapped = {
+    ...payload,
+    monsters: payload.monsters.map(m => ({ ...m, turn: m.turn === 2 ? 3 : m.turn === 3 ? 2 : m.turn })),
+  };
+  let alt;
+  try {
+    const res = await fetch('/api/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(swapped),
+    });
+    alt = await res.json();
+  } catch (e) {
+    return;
+  }
+  if (alt.error || alt.warning) return;
+
+  const card = (title, r, isCurrent) => {
+    const total = r.minRuneSummary.reduce((s, x) => s + x.minRune, 0);
+    return `<div class="cmp-card ${isCurrent ? 'current' : ''}">
+      <div class="cmp-title">${title}</div>
+      <div class="cmp-order">${[r.leadName, ...r.minRuneSummary.map(x => x.name)].join(' → ')}</div>
+      ${r.minRuneSummary.map(x => `<div class="cmp-row"><span>${x.name}</span><b>${x.minRune}</b></div>`).join('')}
+      <div class="cmp-row cmp-total"><span>필요 뒷속 합계</span><b>${total}</b></div>
+      ${r.orderBroken ? '<div class="cmp-warn">⚠ 이 순서는 맞출 수 없음</div>' : ''}
+    </div>`;
+  };
+  box.innerHTML = `<div class="cmp-wrap">
+    ${card('지금 순서', result, true)}
+    ${card('2·3순위를 바꾸면', alt, false)}
+  </div>`;
+}
+
 // ── 공속계산표 ──────────────────────────────
 async function showSpeedTable() {
+  if (!validateInputs()) return;
   const box = document.getElementById('speed-table');
   box.innerHTML = '<span style="font-size:0.78rem;color:var(--sub)">계산 중...</span>';
   let data;

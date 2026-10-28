@@ -418,8 +418,27 @@ function runCalculation({ mode, ldr, tot, useEnemySpec, enemySpec, monsters }) {
 
 // ─── API ──────────────────────────────────────────────────────
 
+// 계산 요청 검증. 문제가 있으면 사용자에게 보여줄 메시지를 반환
+function validateCalcRequest(body) {
+  const { monsters, enemySpec, useEnemySpec } = body || {};
+  if (!Array.isArray(monsters) || monsters.length !== 3) return '몬스터 3마리 정보가 필요합니다.';
+  const turns = monsters.map(m => m.turn).sort();
+  if (turns.join() !== '1,2,3') return '턴 순서는 1·2·3순위가 하나씩 있어야 합니다.';
+  for (const m of monsters) {
+    if (!(m.base > 0)) return `${m.name}: 기본공속을 입력해 주세요.`;
+    if (!(m.rune >= 0)) return `${m.name}: 뒷속은 0 이상이어야 합니다.`;
+  }
+  if (useEnemySpec && enemySpec) {
+    const ok = enemySpec.direct ? enemySpec.speed > 0 : enemySpec.base > 0;
+    if (!ok) return '상대 선턴잡이 공속을 입력해 주세요.';
+  }
+  return null;
+}
+
 // 계산 API
 app.post('/api/calculate', (req, res) => {
+  const invalid = validateCalcRequest(req.body);
+  if (invalid) return res.status(400).json({ error: invalid });
   try {
     const result = runCalculation(req.body);
     res.json(result);
@@ -430,10 +449,11 @@ app.post('/api/calculate', (req, res) => {
 
 // 공속계산표: 1순위 뒷속을 바꿔가며 2·3순위 필요 뒷속을 한 번에 계산
 app.post('/api/speed-table', (req, res) => {
+  const invalid = validateCalcRequest(req.body);
+  if (invalid) return res.status(400).json({ error: invalid });
   try {
     const { monsters, range = 10 } = req.body;
     const lead = monsters.find(m => m.turn === 1);
-    if (!lead) return res.status(400).json({ error: '1순위 몬스터가 없습니다.' });
     const span = Math.min(Math.max(+range || 10, 1), 30);
 
     const rows = [];

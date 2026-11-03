@@ -13,18 +13,36 @@ const pool = new Pool({
 
 app.use(express.json({ limit: '300kb' }));  // 내 덱 100개 동기화(약 70KB)를 받을 수 있게
 
-// ─── 라우트 (static 파일보다 먼저 정의) ────────────────────────────────────────────────────
+// IP별 호출 횟수 제한 (서버 메모리, 재시작하면 초기화). Railway 프록시 뒤라 trust proxy로 실제 IP 사용
+app.set('trust proxy', 1);
+const rateBuckets = new Map();
+function rateLimit(name, max, windowMs) {
+  return (req, res, next) => {
+    const key = `${name}:${req.ip}`;
+    const now = Date.now();
+    const b = rateBuckets.get(key);
+    if (!b || now - b.start >= windowMs) rateBuckets.set(key, { start: now, count: 1 });
+    else if (++b.count > max) return res.status(429).json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
+    next();
+  };
+}
+// 오래된 기록 정리
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, b] of rateBuckets) if (now - b.start > 60 * 60 * 1000) rateBuckets.delete(k);
+}, 10 * 60 * 1000).unref();
+
+const TEN_MIN = 10 * 60 * 1000;
+const calcLimit  = rateLimit('calc', 600, TEN_MIN);   // 공속 계산(아티 조정 미리보기 포함): 10분에 600번
+const tableLimit = rateLimit('table', 60, TEN_MIN);   // 공속계산표(계산 21번 묶음): 10분에 60번
+const dmgLimit   = rateLimit('dmg', 600, TEN_MIN);    // 데미지 계산(입력할 때마다): 10분에 600번
+
+// ─── 라우트 ────────────────────────────────────────────────────
+// 프로젝트 폴더를 정적 파일로 공개하지 않음 (server.js 등 소스가 그대로 내려받아지던 문제). 페이지는 아래 경로로만 제공
 app.get('/td-spd-cal', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/mulciri-dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'mulciri.html')));
 app.get('/mulmuhee-dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'mulmuhee.html')));
-app.get('/test', (req, res) => res.sendFile(path.join(__dirname, 'test.html')));
 app.get('/', (req, res) => res.status(404).send('Not Found'));
-
-app.use((req, res, next) => {
-  if (req.path.endsWith('.html')) return res.status(404).send('Not Found');
-  next();
-});
-app.use(express.static(path.join(__dirname)));
 
 // ─── DB 초기화 ────────────────────────────────────────────────
 async function initDB() {
@@ -445,7 +463,7 @@ function validateCalcRequest(body) {
 }
 
 // 계산 API
-app.post('/api/calculate', (req, res) => {
+app.post('/api/calculate', calcLimit, (req, res) => {
   const invalid = validateCalcRequest(req.body);
   if (invalid) return res.status(400).json({ error: invalid });
   try {
@@ -457,7 +475,7 @@ app.post('/api/calculate', (req, res) => {
 });
 
 // 공속계산표: 1순위 뒷속을 바꿔가며 2·3순위 필요 뒷속을 한 번에 계산
-app.post('/api/speed-table', (req, res) => {
+app.post('/api/speed-table', tableLimit, (req, res) => {
   const invalid = validateCalcRequest(req.body);
   if (invalid) return res.status(400).json({ error: invalid });
   try {
@@ -525,6 +543,109 @@ app.delete('/api/records/:id', async (req, res) => {
   }
 });
 
+// ─── 데미지 계산 (물시리·물무희) ─────────────────────────────────
+// 공식을 화면 코드에 두지 않으려고 서버에서 계산하고 결과 숫자만 돌려줌
+const DMG_FIELDS = {
+  mulciri:  ['hp', 'atk', 'def', 'spd', 'cdmg', 'a-hp', 'a-atk', 'a-def', 'a-spd', 'a-cdmg', 'a-atkbuff', 'a-spdbuff', 'a-ele',
+             'will', 'dmgred', 'cdmgred', 'leader', 'ac-base', 'ac-gear', 'ac-g'],
+  mulmuhee: ['hp', 'atk', 'def', 'spd', 'cdmg', 'a-hp', 'a-atk', 'a-def', 'a-spd', 'a-cdmg', 'a-atkbuff', 'a-spdbuff', 'a-ele',
+             'will', 'dmgred', 'def-base', 'def-stat'],
+};
+function dmgInputs(kind, body) {
+  const v = {};
+  DMG_FIELDS[kind].forEach(k => { const n = parseFloat((body || {})[k]); v[k] = Number.isFinite(n) ? n : 0; });
+  return v;
+}
+
+// 물시리: 상대 방어 무시라 방어 항이 상수(1000/1140)
+function calcMulciri(v) {
+  const hp = v['hp'], atk = v['atk'], def = v['def'], spd = v['spd'], cdmg = v['cdmg'];
+  const aHp = v['a-hp'], aAtk = v['a-atk'], aDef = v['a-def'], aSpd = v['a-spd'];
+  const aCdmg = v['a-cdmg'], aAtkBuff = v['a-atkbuff'], aSpdBuff = v['a-spdbuff'], aEle = v['a-ele'];
+  const will = v['will'], dmgRed = v['dmgred'], cdmgRed = v['cdmgred'];
+  const leaderPct = v['leader'], acBase = v['ac-base'], acGear = v['ac-gear'], G = v['ac-g'];
+
+  // 최종 스탯 (D열)
+  const D4 = 9885*1.4 + hp;
+  const D5 = 900*1.61 + atk + 900*0.08*will;
+  const D6 = 582*1.4 + def;
+  const D7 = Math.ceil(106*(1+0.15+0.28)) + spd - 1;
+  const D8 = cdmg + aCdmg + 50;
+
+  // 버프 후 스탯 (E열)
+  const E5 = D5*(1+0.5*(1+aAtkBuff*0.01));
+  const E7 = D7*(1+0.3*(1+aSpdBuff*0.01));
+  const E5_off = D5;  // 공격강화 버프 없을 때
+
+  const F10 = 4.7;
+  const F12 = E5*(1+0.25+D8*0.01-cdmgRed*0.01)*F10;
+  const F12_off = E5_off*(1+0.25+D8*0.01-cdmgRed*0.01)*F10;
+  const F13 = (D4*aHp + E5*aAtk + D6*aDef + E7*aSpd)*0.01;
+  const F13_off = (D4*aHp + E5_off*aAtk + D6*aDef + E7*aSpd)*0.01;
+
+  // 속성 피해 증가·감소(물뎀감)는 스킬 딜에만 적용, 아티 딜은 그대로 더함
+  const defMult = (1+aEle*0.01-dmgRed*0.01)*(1000/1140);
+  const F15 = F12*defMult + F13;
+  const F15_off = F12_off*defMult + F13_off;
+
+  // 요구 공속
+  const leaderExtra = leaderPct > 1 ? leaderPct/100 : leaderPct;
+  const leaderFinal = 0.15 + leaderExtra;
+  const enh = aSpdBuff > 1 ? aSpdBuff/100 : aSpdBuff;
+  const ac_final = Math.ceil(acBase*(1+leaderFinal)) + acGear;
+  const T = Math.floor(100/(ac_final*0.07)) + 1;
+  const buffMul = 1 + 0.3*(1+enh);
+  const x = (ac_final*(T+1) - G/0.07) / (T + buffMul);
+  const sbMinFinal = Math.max(0, Math.floor(x)+1);
+  const b_base = Math.ceil(106*(1+leaderFinal));
+  const reqSpd = Math.max(0, sbMinFinal - b_base);
+
+  return {
+    expectOn: F15, expectOff: F15_off, skill: F12, arti: F13, spdBuff: E7, reqSpd,
+    d: { hp: D4, atk: D5, def: D6, spd: D7, cdmg: D8 },
+    e: { hp: D4, atk: E5, def: D6, spd: E7, cdmg: D8 },
+  };
+}
+
+// 물무희: 스킬 계수가 버프 후 공속에 비례, 상대 방어 반영
+function calcMulmuhee(v) {
+  const hp = v['hp'], atk = v['atk'], def = v['def'], spd = v['spd'], cdmg = v['cdmg'];
+  const aHp = v['a-hp'], aAtk = v['a-atk'], aDef = v['a-def'], aSpd = v['a-spd'];
+  const aCdmg = v['a-cdmg'], aAtkBuff = v['a-atkbuff'], aSpdBuff = v['a-spdbuff'], aEle = v['a-ele'];
+  const will = v['will'], dmgRed = v['dmgred'], defBase = v['def-base'], defStat = v['def-stat'];
+
+  // 최종 스탯 (D열)
+  const dHp   = 11205 * 1.4 + hp;
+  const dAtk  = 670 * 1.61 + atk + 670 * 0.08 * will;
+  const dDef  = 560 * 1.4 + def;
+  const dSpd  = Math.ceil(101 * (1 + 0.15 + 0.28)) + spd - 1;
+  const dCdmg = cdmg + aCdmg + 50;
+
+  // 버프 후 스탯 (E열)
+  const eAtk = dAtk * (1 + 0.5 * (1 + aAtkBuff * 0.01));
+  const eSpd = dSpd * (1 + 0.3 * (1 + aSpdBuff * 0.01));
+
+  const coef = (eSpd + 66) / 99;
+  const skillDmg = eAtk * (1 + 0.25 + dCdmg * 0.01) * coef;
+  const artiDmg = (dHp * aHp + eAtk * aAtk + dDef * aDef + eSpd * aSpd) * 0.01;
+  // 속성 피해 증가·감소(물뎀감)와 상대 방어는 스킬 딜에만 적용, 아티 딜은 그대로 더함
+  const expect = skillDmg * (1 + aEle * 0.01 - dmgRed * 0.01) * 1000 / ((defBase * 1.4 + defStat) * 3.55 + 1140)
+               + artiDmg;
+
+  return {
+    expect, skill: skillDmg, arti: artiDmg, coef, spdBuff: eSpd,
+    d: { hp: dHp, atk: dAtk, def: dDef, spd: dSpd, cdmg: dCdmg },
+    e: { hp: dHp, atk: eAtk, def: dDef, spd: eSpd, cdmg: dCdmg },
+  };
+}
+
+app.post('/api/dmg/:kind', dmgLimit, (req, res) => {
+  const kind = req.params.kind;
+  if (!Object.hasOwn(DMG_FIELDS, kind)) return res.status(404).json({ error: 'Not Found' });
+  const v = dmgInputs(kind, req.body);
+  res.json(kind === 'mulciri' ? calcMulciri(v) : calcMulmuhee(v));
+});
+
 // ─── 즐겨찾기 저장 코드 ─────────────────────────────────────────
 // 로그인 없이 코드 하나로 다른 기기·브라우저에서 즐겨찾기를 불러옴. 코드를 아는 사람만 읽고 고칠 수 있음
 // 헷갈리는 0/O, 1/I 제외 32자 × 10자리 ≈ 50비트라 추측으로 맞히기 어려움
@@ -565,25 +686,6 @@ function normFavs(favs) {
   }
   return out;
 }
-
-// IP별 호출 횟수 제한 (서버 메모리, 재시작하면 초기화). Railway 프록시 뒤라 trust proxy로 실제 IP 사용
-app.set('trust proxy', 1);
-const rateBuckets = new Map();
-function rateLimit(name, max, windowMs) {
-  return (req, res, next) => {
-    const key = `${name}:${req.ip}`;
-    const now = Date.now();
-    const b = rateBuckets.get(key);
-    if (!b || now - b.start >= windowMs) rateBuckets.set(key, { start: now, count: 1 });
-    else if (++b.count > max) return res.status(429).json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
-    next();
-  };
-}
-// 오래된 기록 정리
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, b] of rateBuckets) if (now - b.start > 60 * 60 * 1000) rateBuckets.delete(k);
-}, 10 * 60 * 1000).unref();
 
 const HOUR = 60 * 60 * 1000;
 const favReadLimit   = rateLimit('fav-read', 60, 10 * 60 * 1000);  // 조회: 10분에 60번

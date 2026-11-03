@@ -40,8 +40,10 @@ const dmgLimit   = rateLimit('dmg', 600, TEN_MIN);    // 데미지 계산(입력
 // ─── 라우트 ────────────────────────────────────────────────────
 // 프로젝트 폴더를 정적 파일로 공개하지 않음 (server.js 등 소스가 그대로 내려받아지던 문제). 페이지는 아래 경로로만 제공
 app.get('/td-spd-cal', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-app.get('/mulciri-dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'mulciri.html')));
-app.get('/mulmuhee-dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'mulmuhee.html')));
+app.get('/dmg-cal', (req, res) => res.sendFile(path.join(__dirname, 'dmg.html')));
+// 예전 주소는 통합 데미지 계산기로 연결
+app.get('/mulciri-dmg-cal', (req, res) => res.redirect(301, '/dmg-cal?m=mulciri'));
+app.get('/mulmuhee-dmg-cal', (req, res) => res.redirect(301, '/dmg-cal?m=mulmuhee'));
 app.get('/', (req, res) => res.status(404).send('Not Found'));
 
 // ─── DB 초기화 ────────────────────────────────────────────────
@@ -543,107 +545,101 @@ app.delete('/api/records/:id', async (req, res) => {
   }
 });
 
-// ─── 데미지 계산 (물시리·물무희) ─────────────────────────────────
-// 공식을 화면 코드에 두지 않으려고 서버에서 계산하고 결과 숫자만 돌려줌
-const DMG_FIELDS = {
-  mulciri:  ['hp', 'atk', 'def', 'spd', 'cdmg', 'a-hp', 'a-atk', 'a-def', 'a-spd', 'a-cdmg', 'a-atkbuff', 'a-spdbuff', 'a-ele',
-             'will', 'dmgred', 'cdmgred', 'leader', 'ac-base', 'ac-gear', 'ac-g'],
-  mulmuhee: ['hp', 'atk', 'def', 'spd', 'cdmg', 'a-hp', 'a-atk', 'a-def', 'a-spd', 'a-cdmg', 'a-atkbuff', 'a-spdbuff', 'a-ele',
-             'will', 'dmgred', 'def-base', 'def-stat'],
+// ─── 데미지 계산 (통합) ─────────────────────────────────────────
+// 공식·몬스터 수치를 화면 코드에 두지 않으려고 서버에서 계산하고 결과 숫자만 돌려줌
+// 점령전 소환사 레벨 보너스: 공격 +61%(41+20), 체력·방어 +40%(20+20), 치명피해 +50(25+25)
+const SIEGE = { atk: 1.61, hpDef: 1.4, cdmg: 50 };
+const SKILL_UP = 0.25;  // 스킬 레벨업 피해 증가
+
+// 몬스터 정의. coef: fixed(고정 계수) | spd(버프 후 공속 비례 (공속 + add) / div)
+// ignoreDef: 상대 방어 무시 / critRed: 피치명피해 감소 반영 / reqSpd: 선턴잡이 기준 요구 뒷속 / buffCompare: 공격강화 버프 O·X 비교
+// defaults: 화면 입력 기본값 (공개돼도 되는 값만)
+const DMG_MONSTERS = {
+  mulciri: {
+    name: '물시리', element: '물', base: { hp: 9885, atk: 900, def: 582, spd: 106 },
+    coef: { type: 'fixed', value: 4.7 }, ignoreDef: true, critRed: true, reqSpd: true, buffCompare: true,
+    defaults: { hp: 8874, atk: 2000, def: 296, spd: 215, cdmg: 150, 'a-hp': 0.3, 'a-atk': 0, 'a-def': 0, 'a-spd': 0, 'a-cdmg': 35,
+                'a-atkbuff': 8, 'a-spdbuff': 0, 'a-ele': 18, will: 0, leader: 28, 'ac-base': 115, 'ac-gear': 237, 'ac-g': 15,
+                dmgred: 23, cdmgred: 15 },
+  },
+  mulmuhee: {
+    name: '물무희', element: '물', base: { hp: 11205, atk: 670, def: 560, spd: 101 },
+    coef: { type: 'spd', add: 66, div: 99 }, ignoreDef: false, critRed: false, reqSpd: false, buffCompare: false,
+    defaults: { hp: 9844, atk: 1562, def: 284, spd: 200, cdmg: 187, 'a-hp': 0, 'a-atk': 7, 'a-def': 0, 'a-spd': 0, 'a-cdmg': 39,
+                'a-atkbuff': 0, 'a-spdbuff': 0, 'a-ele': 20, will: 1, leader: 28, dmgred: 0, 'def-base': 461, 'def-stat': 508 },
+  },
 };
-function dmgInputs(kind, body) {
+const DMG_FIELDS = ['hp', 'atk', 'def', 'spd', 'cdmg', 'a-hp', 'a-atk', 'a-def', 'a-spd', 'a-cdmg', 'a-atkbuff', 'a-spdbuff', 'a-ele',
+                    'will', 'dmgred', 'cdmgred', 'def-base', 'def-stat', 'leader', 'ac-base', 'ac-gear', 'ac-g'];
+function dmgInputs(body) {
   const v = {};
-  DMG_FIELDS[kind].forEach(k => { const n = parseFloat((body || {})[k]); v[k] = Number.isFinite(n) ? n : 0; });
+  DMG_FIELDS.forEach(k => { const n = parseFloat((body || {})[k]); v[k] = Number.isFinite(n) ? n : 0; });
   return v;
 }
 
-// 물시리: 상대 방어 무시라 방어 항이 상수(1000/1140)
-function calcMulciri(v) {
-  const hp = v['hp'], atk = v['atk'], def = v['def'], spd = v['spd'], cdmg = v['cdmg'];
-  const aHp = v['a-hp'], aAtk = v['a-atk'], aDef = v['a-def'], aSpd = v['a-spd'];
-  const aCdmg = v['a-cdmg'], aAtkBuff = v['a-atkbuff'], aSpdBuff = v['a-spdbuff'], aEle = v['a-ele'];
-  const will = v['will'], dmgRed = v['dmgred'], cdmgRed = v['cdmgred'];
-  const leaderPct = v['leader'], acBase = v['ac-base'], acGear = v['ac-gear'], G = v['ac-g'];
+// 토템 15% + 속리더 % (28처럼 넣어도, 0.28처럼 넣어도 같은 값)
+function leaderTotem(v) {
+  const leaderPct = v['leader'];
+  return 0.15 + (leaderPct > 1 ? leaderPct/100 : leaderPct);
+}
 
-  // 최종 스탯 (D열)
-  const D4 = 9885*1.4 + hp;
-  const D5 = 900*1.61 + atk + 900*0.08*will;
-  const D6 = 582*1.4 + def;
-  const D7 = Math.ceil(106*(1+0.15+0.28)) + spd - 1;
-  const D8 = cdmg + aCdmg + 50;
-
-  // 버프 후 스탯 (E열)
-  const E5 = D5*(1+0.5*(1+aAtkBuff*0.01));
-  const E7 = D7*(1+0.3*(1+aSpdBuff*0.01));
-  const E5_off = D5;  // 공격강화 버프 없을 때
-
-  const F10 = 4.7;
-  const F12 = E5*(1+0.25+D8*0.01-cdmgRed*0.01)*F10;
-  const F12_off = E5_off*(1+0.25+D8*0.01-cdmgRed*0.01)*F10;
-  const F13 = (D4*aHp + E5*aAtk + D6*aDef + E7*aSpd)*0.01;
-  const F13_off = (D4*aHp + E5_off*aAtk + D6*aDef + E7*aSpd)*0.01;
-
-  // 속성 피해 증가·감소(물뎀감)는 스킬 딜에만 적용, 아티 딜은 그대로 더함
-  const defMult = (1+aEle*0.01-dmgRed*0.01)*(1000/1140);
-  const F15 = F12*defMult + F13;
-  const F15_off = F12_off*defMult + F13_off;
-
-  // 요구 공속
-  const leaderExtra = leaderPct > 1 ? leaderPct/100 : leaderPct;
-  const leaderFinal = 0.15 + leaderExtra;
+// 선턴잡이(상대)가 첫 턴에 게이지를 올린 뒤에도 이 몬스터가 먼저 움직이기 위한 최소 룬 공속
+function calcReqSpd(m, v) {
+  const acBase = v['ac-base'], acGear = v['ac-gear'], G = v['ac-g'], aSpdBuff = v['a-spdbuff'];
+  const leaderFinal = leaderTotem(v);
   const enh = aSpdBuff > 1 ? aSpdBuff/100 : aSpdBuff;
   const ac_final = Math.ceil(acBase*(1+leaderFinal)) + acGear;
   const T = Math.floor(100/(ac_final*0.07)) + 1;
   const buffMul = 1 + 0.3*(1+enh);
   const x = (ac_final*(T+1) - G/0.07) / (T + buffMul);
   const sbMinFinal = Math.max(0, Math.floor(x)+1);
-  const b_base = Math.ceil(106*(1+leaderFinal));
-  const reqSpd = Math.max(0, sbMinFinal - b_base);
-
-  return {
-    expectOn: F15, expectOff: F15_off, skill: F12, arti: F13, spdBuff: E7, reqSpd,
-    d: { hp: D4, atk: D5, def: D6, spd: D7, cdmg: D8 },
-    e: { hp: D4, atk: E5, def: D6, spd: E7, cdmg: D8 },
-  };
+  const b_base = Math.ceil(m.base.spd*(1+leaderFinal));
+  return Math.max(0, sbMinFinal - b_base);
 }
 
-// 물무희: 스킬 계수가 버프 후 공속에 비례, 상대 방어 반영
-function calcMulmuhee(v) {
-  const hp = v['hp'], atk = v['atk'], def = v['def'], spd = v['spd'], cdmg = v['cdmg'];
-  const aHp = v['a-hp'], aAtk = v['a-atk'], aDef = v['a-def'], aSpd = v['a-spd'];
-  const aCdmg = v['a-cdmg'], aAtkBuff = v['a-atkbuff'], aSpdBuff = v['a-spdbuff'], aEle = v['a-ele'];
-  const will = v['will'], dmgRed = v['dmgred'], defBase = v['def-base'], defStat = v['def-stat'];
+// 기대 데미지 = 스킬 딜 × (1 + 속성 주는 피해 증가 − 속성 피해 감소) × 방어 항 + 아티 딜
+// 속성 증감·상대 방어·치명은 스킬 딜에만 적용, 아티 딜은 그대로 더함
+function calcDamage(m, v) {
+  // 최종 스탯 (기본 × 소환사 레벨 보너스 + 룬)
+  const dHp   = m.base.hp * SIEGE.hpDef + v['hp'];
+  const dAtk  = m.base.atk * SIEGE.atk + v['atk'] + m.base.atk * 0.08 * v['will'];  // 투지 세트당 기본 공격 8%
+  const dDef  = m.base.def * SIEGE.hpDef + v['def'];
+  const dSpd  = Math.ceil(m.base.spd * (1 + leaderTotem(v))) + v['spd'] - 1;
+  const dCdmg = v['cdmg'] + v['a-cdmg'] + SIEGE.cdmg;
 
-  // 최종 스탯 (D열)
-  const dHp   = 11205 * 1.4 + hp;
-  const dAtk  = 670 * 1.61 + atk + 670 * 0.08 * will;
-  const dDef  = 560 * 1.4 + def;
-  const dSpd  = Math.ceil(101 * (1 + 0.15 + 0.28)) + spd - 1;
-  const dCdmg = cdmg + aCdmg + 50;
+  // 버프 후 (공격강화 50%, 속버프 30%를 아티 강화% 만큼 키움)
+  const eAtk = dAtk * (1 + 0.5 * (1 + v['a-atkbuff'] * 0.01));
+  const eSpd = dSpd * (1 + 0.3 * (1 + v['a-spdbuff'] * 0.01));
 
-  // 버프 후 스탯 (E열)
-  const eAtk = dAtk * (1 + 0.5 * (1 + aAtkBuff * 0.01));
-  const eSpd = dSpd * (1 + 0.3 * (1 + aSpdBuff * 0.01));
+  const coef = m.coef.type === 'fixed' ? m.coef.value : (eSpd + m.coef.add) / m.coef.div;
+  const critMul = 1 + SKILL_UP + dCdmg * 0.01 - (m.critRed ? v['cdmgred'] * 0.01 : 0);
+  const defTerm = m.ignoreDef ? 1000 / 1140 : 1000 / ((v['def-base'] * 1.4 + v['def-stat']) * 3.55 + 1140);
+  const eleMul = 1 + v['a-ele'] * 0.01 - v['dmgred'] * 0.01;
 
-  const coef = (eSpd + 66) / 99;
-  const skillDmg = eAtk * (1 + 0.25 + dCdmg * 0.01) * coef;
-  const artiDmg = (dHp * aHp + eAtk * aAtk + dDef * aDef + eSpd * aSpd) * 0.01;
-  // 속성 피해 증가·감소(물뎀감)와 상대 방어는 스킬 딜에만 적용, 아티 딜은 그대로 더함
-  const expect = skillDmg * (1 + aEle * 0.01 - dmgRed * 0.01) * 1000 / ((defBase * 1.4 + defStat) * 3.55 + 1140)
-               + artiDmg;
+  const skillOf = atk => atk * critMul * coef;
+  const artiOf  = atk => (dHp * v['a-hp'] + atk * v['a-atk'] + dDef * v['a-def'] + eSpd * v['a-spd']) * 0.01;
+  const expectOf = atk => skillOf(atk) * eleMul * defTerm + artiOf(atk);
 
   return {
-    expect, skill: skillDmg, arti: artiDmg, coef, spdBuff: eSpd,
+    expectOn: expectOf(eAtk), expectOff: expectOf(dAtk), skill: skillOf(eAtk), arti: artiOf(eAtk), coef, spdBuff: eSpd,
+    reqSpd: m.reqSpd ? calcReqSpd(m, v) : null,
     d: { hp: dHp, atk: dAtk, def: dDef, spd: dSpd, cdmg: dCdmg },
     e: { hp: dHp, atk: eAtk, def: dDef, spd: eSpd, cdmg: dCdmg },
   };
 }
 
+// 화면에 필요한 정보만 공개 (기본 스탯·계수는 비공개)
+app.get('/api/dmg-monsters', (req, res) => {
+  res.json(Object.entries(DMG_MONSTERS).map(([key, m]) => ({
+    key, name: m.name, element: m.element, defaults: m.defaults,
+    show: { def: !m.ignoreDef, critRed: m.critRed, reqSpd: m.reqSpd, buffCompare: m.buffCompare },
+  })));
+});
+
 app.post('/api/dmg/:kind', dmgLimit, (req, res) => {
-  const kind = req.params.kind;
-  if (!Object.hasOwn(DMG_FIELDS, kind)) return res.status(404).json({ error: 'Not Found' });
-  const v = dmgInputs(kind, req.body);
-  res.json(kind === 'mulciri' ? calcMulciri(v) : calcMulmuhee(v));
+  const m = Object.hasOwn(DMG_MONSTERS, req.params.kind) ? DMG_MONSTERS[req.params.kind] : null;
+  if (!m) return res.status(404).json({ error: '없는 몬스터입니다.' });
+  res.json(calcDamage(m, dmgInputs(req.body)));
 });
 
 // ─── 즐겨찾기 저장 코드 ─────────────────────────────────────────

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>물시리 딜 계산기</title>
+<title>서머너즈워 딜 계산기</title>
 <style>
 :root {
   --bg: #0d1117; --card: #161b22; --card2: #1c2128;
@@ -19,6 +19,11 @@ body {
     radial-gradient(ellipse at 15% 40%, rgba(88,166,255,0.06) 0%, transparent 55%),
     radial-gradient(ellipse at 85% 20%, rgba(86,211,100,0.05) 0%, transparent 55%);
 }
+/* 계산기 사이 이동 탭 (공속 계산기 ↔ 딜 계산기) */
+.app-nav { display:flex; justify-content:center; gap:8px; max-width:1300px; margin:0 auto 4px; flex-wrap:wrap; }
+.app-nav a { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:999px; border:1px solid #626d78; background:#1c2128; color:#929ba7; font-size:0.875rem; font-weight:600; text-decoration:none; }
+.app-nav a:hover { color:#e6edf3; border-color:#58a6ff; }
+.app-nav a[aria-current="page"] { color:#e6edf3; border-color:#58a6ff; background:rgba(88,166,255,.15); }
 h1 { text-align:center; font-size:1.6rem; padding:12px 0 4px;
   background:linear-gradient(90deg,#58a6ff,#56d364); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
 .subtitle { text-align:center; color:var(--sub); font-size:0.83rem; margin-bottom:24px; }
@@ -60,6 +65,12 @@ tr:last-child td { border-bottom:none; }
 .va { color:var(--accent); font-weight:600; }
 .vg { color:var(--green); font-weight:600; }
 
+[hidden] { display:none !important; }
+.mon-list { display:flex; flex-wrap:wrap; gap:6px; }
+.mon-btn { background:var(--card2); border:1px solid var(--border); color:var(--sub); border-radius:999px; padding:6px 14px; font-size:0.85rem; cursor:pointer; }
+.mon-btn:hover { border-color:var(--accent); color:var(--text); }
+.mon-btn.on { background:rgba(88,166,255,.15); border-color:var(--accent); color:var(--text); font-weight:600; }
+.big-grid.single { grid-template-columns:1fr; }
 .tip { background:rgba(210,153,34,0.08); border:1px solid rgba(210,153,34,0.25); border-radius:8px; padding:10px 14px; font-size:0.78rem; color:#fbbf24; margin-bottom:12px; line-height:1.6; }
 .req-box { background:rgba(86,211,100,0.08); border:1px solid rgba(86,211,100,0.25); border-radius:8px; padding:12px 16px; text-align:center; margin-bottom:12px; }
 .req-box .r-label { font-size:0.78rem; color:var(--sub); margin-bottom:4px; }
@@ -85,12 +96,20 @@ tr:last-child td { border-bottom:none; }
 </style>
 </head>
 <body>
-<h1>물시리 딜 계산기</h1>
+<nav class="app-nav" aria-label="계산기 이동">
+  <a href="/td-spd-cal">⚡ 공속 계산기</a>
+  <a href="/dmg-cal" aria-current="page">⚔️ 딜 계산기</a>
+</nav>
+<h1 id="page-title">딜 계산기</h1>
 <p class="subtitle">Made by 심판(시차) · 룬·아티 스탯을 입력하면 자동 계산됩니다</p>
 
 <div class="layout">
 <!-- 입력 -->
 <div>
+  <div class="card">
+    <div class="card-title">🐉 몬스터 선택</div>
+    <div id="mon-list" class="mon-list" role="group" aria-label="몬스터 선택"></div>
+  </div>
   <div class="card">
     <div class="card-title">📥 룬 스탯 입력</div>
     <p style="font-size:0.75rem;color:var(--sub);margin-bottom:10px">룬·아티로 증가한 수치만 입력 (기본 스탯 자동 반영)</p>
@@ -108,27 +127,31 @@ tr:last-child td { border-bottom:none; }
     <div class="row"><span class="lbl">치명피해 합 (좋·나쁠수록)</span><input type="number" id="a-cdmg" value="35"><span class="unit">%</span></div>
     <div class="row"><span class="lbl">공/방 강화효과 증가</span><input type="number" id="a-atkbuff" value="8"><span class="unit">%</span></div>
     <div class="row"><span class="lbl">공속 증가효과 증가</span><input type="number" id="a-spdbuff" value="0"><span class="unit">%</span></div>
-    <div class="row"><span class="lbl">속성 주는 피해 증가</span><input type="number" id="a-ele" value="18"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl"><span class="ele">물</span> 속성 주는 피해 증가</span><input type="number" id="a-ele" value="18"><span class="unit">%</span></div>
 
     <div class="sec">기타</div>
     <div class="row"><span class="lbl">투지 세트 수</span><input type="number" id="will" value="0" min="0" max="2"><span class="unit">개</span></div>
-
-    <div class="sec">속리더 · 선턴잡이 설정</div>
     <div class="row"><span class="lbl">속리더 %</span><input type="number" id="leader" value="28"><span class="unit">%</span></div>
+
+    <div data-show="reqSpd">
+    <div class="sec">선턴잡이 설정</div>
     <div class="row"><span class="lbl">선턴잡이 기본속</span><input type="number" id="ac-base" value="115"></div>
     <div class="row"><span class="lbl">선턴잡이 룬속</span><input type="number" id="ac-gear" value="237"></div>
     <div class="row"><span class="lbl">선턴잡이 게증량</span><input type="number" id="ac-g" value="15"><span class="unit">%</span></div>
+    </div>
 
     <div class="sec">상대방 (선택 입력)</div>
-    <div class="row"><span class="lbl">물뎀감</span><input type="number" id="dmgred" value="23"><span class="unit">%</span></div>
-    <div class="row"><span class="lbl">피치명피해 감소</span><input type="number" id="cdmgred" value="15"><span class="unit">%</span></div>
+    <div class="row"><span class="lbl"><span class="ele">물</span>뎀감</span><input type="number" id="dmgred" value="23"><span class="unit">%</span></div>
+    <div class="row" data-show="critRed"><span class="lbl">피치명피해 감소</span><input type="number" id="cdmgred" value="15"><span class="unit">%</span></div>
+    <div class="row" data-show="def"><span class="lbl">기본 방어</span><input type="number" id="def-base" value="461"></div>
+    <div class="row" data-show="def"><span class="lbl">스탯 방어</span><input type="number" id="def-stat" value="508"></div>
   </div>
 </div>
 
 <!-- 결과 -->
 <div>
   <!-- 공격강화 버프 비교 -->
-  <div class="card" style="margin-bottom:12px">
+  <div class="card" style="margin-bottom:12px" data-show="buffCompare">
     <div class="card-title">⚔️ 공격강화 버프 비교</div>
     <div class="buff-compare">
       <div class="buff-col buff-on">
@@ -149,14 +172,14 @@ tr:last-child td { border-bottom:none; }
     </div>
   </div>
 
-  <div class="big-grid">
-    <div class="big-card green" id="req-card">
+  <div class="big-grid" id="big-grid">
+    <div class="big-card green" id="req-card" data-show="reqSpd">
       <div class="b-label">🏃 요구 뒷속</div>
       <div class="b-val" id="r-req">-</div>
       <div class="b-sub" id="r-req-sub">선턴잡이 기준 최소 룬 공속</div>
     </div>
     <div class="big-card">
-      <div class="b-label">🎯 스킬 딜 (버프O)</div>
+      <div class="b-label" id="expect-label">🎯 기대 데미지</div>
       <div class="b-val" id="r-expect">-</div>
       <div class="b-sub" id="r-skill-sub">아티 딜 포함</div>
     </div>
@@ -173,7 +196,7 @@ tr:last-child td { border-bottom:none; }
     </div>
     <div class="stat-card">
       <div class="s-label">스킬 계수</div>
-      <div class="s-val" id="r-coef" style="color:var(--yellow)">4.7</div>
+      <div class="s-val" id="r-coef" style="color:var(--yellow)">-</div>
     </div>
     <div class="stat-card">
       <div class="s-label">버프 후 공속</div>
@@ -197,8 +220,10 @@ tr:last-child td { border-bottom:none; }
 
   <div class="tip">
     💡 <b>치명피해 합 (아티)</b>: 치명피해 증가 옵션은 양수, 감소는 음수로 입력하세요.<br>
-    <b>속리더 %</b>: 물시리의 속도 리더 효과(%)를 입력하세요. 선턴잡이 합속 계산에 사용됩니다.<br>
-    <b>선턴잡이 게증량</b>: 상대 선턴잡이가 첫 턴 후 부여하는 게이지 양(%)을 입력하세요.
+    <b>속성 주는 피해 증가</b>: <span class="ele">물</span> 속성 주는 피해 증가 아티 수치를 입력하세요.<br>
+    <b>속리더 %</b>: 우리 덱의 속도 리더 효과(%)입니다. 이 몬스터의 공속(토템 15% 포함)<span data-show="reqSpd">과 선턴잡이 합속</span> 계산에 사용됩니다.
+    <span data-show="reqSpd"><br>
+    <b>선턴잡이 게증량</b>: 상대 선턴잡이가 첫 턴 후 부여하는 게이지 양(%)을 입력하세요.</span>
   </div>
 </div>
 </div>
@@ -209,19 +234,79 @@ function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
 function fmtD(n, d=2) { return n.toFixed(d); }
 function setText(id, text) { document.getElementById(id).textContent = text; }
 
+// ── 몬스터 선택 ──────────────────────────────
+// 몬스터 목록·기본값은 서버에서 받음 (기본 스탯·계수는 서버에만 있음)
+let monsters = [], current = null;
+const INPUTS_KEY = key => `dmgcal_inputs_${key}`;
+const LAST_KEY = 'dmgcal_last';
+function store(k, val) { try { localStorage.setItem(k, val); } catch {} }
+function restore(k) { try { return localStorage.getItem(k); } catch { return null; } }
+
+function inputEls() { return [...document.querySelectorAll('input[id]')]; }
+function saveInputs() {
+  if (!current) return;
+  store(INPUTS_KEY(current.key), JSON.stringify(Object.fromEntries(inputEls().map(el => [el.id, el.value]))));
+}
+
+// 몬스터를 바꾸면 그 몬스터에서 마지막으로 쓴 입력값(없으면 기본값)을 채우고 필요한 칸만 보여 줌
+function selectMonster(key) {
+  const m = monsters.find(x => x.key === key) || monsters[0];
+  if (!m) return;
+  saveInputs();
+  current = m;
+  let saved = {};
+  try { saved = JSON.parse(restore(INPUTS_KEY(m.key))) || {}; } catch {}
+  inputEls().forEach(el => {
+    el.value = el.id in saved ? saved[el.id] : (m.defaults[el.id] ?? 0);
+  });
+  document.querySelectorAll('[data-show]').forEach(el => { el.hidden = !m.show[el.dataset.show]; });
+  document.querySelectorAll('.ele').forEach(el => { el.textContent = m.element; });
+  document.getElementById('big-grid').classList.toggle('single', !m.show.reqSpd);
+  setText('expect-label', m.show.buffCompare ? '🎯 기대 데미지 (버프O)' : '⚔️ 기대 데미지');
+  setText('page-title', `${m.name} 딜 계산기`);
+  document.title = `${m.name} 딜 계산기`;
+  document.querySelectorAll('.mon-btn').forEach(b => {
+    b.classList.toggle('on', b.dataset.key === m.key);
+    b.setAttribute('aria-pressed', b.dataset.key === m.key);
+  });
+  store(LAST_KEY, m.key);
+  history.replaceState(null, '', `${location.pathname}?m=${encodeURIComponent(m.key)}`);
+  requestCalc();
+}
+
+async function loadMonsters() {
+  try {
+    monsters = await (await fetch('/api/dmg-monsters')).json();
+  } catch {
+    setText('r-expect', '서버 연결 실패');
+    return;
+  }
+  const list = document.getElementById('mon-list');
+  list.replaceChildren(...monsters.map(m => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mon-btn'; b.dataset.key = m.key; b.textContent = m.name;
+    b.addEventListener('click', () => selectMonster(m.key));
+    return b;
+  }));
+  const want = new URLSearchParams(location.search).get('m') || restore(LAST_KEY);
+  selectMonster(want);
+}
+
+// ── 계산 ──────────────────────────────
 // 계산은 서버에서 함. 입력을 보내고 결과 숫자만 받아 표시 (늦게 온 응답은 버림)
 let calcSeq = 0, calcTimer = null;
 function calc() {
+  saveInputs();
   clearTimeout(calcTimer);
   calcTimer = setTimeout(requestCalc, 150);
 }
 async function requestCalc() {
+  if (!current) return;
   const seq = ++calcSeq;
-  const body = {};
-  document.querySelectorAll('input[id]').forEach(el => { body[el.id] = v(el.id); });
+  const body = Object.fromEntries(inputEls().map(el => [el.id, v(el.id)]));
   let r;
   try {
-    const res = await fetch('/api/dmg/mulciri', {
+    const res = await fetch(`/api/dmg/${encodeURIComponent(current.key)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(res.status === 429 ? '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' : '계산하지 못했습니다.');
@@ -234,11 +319,35 @@ async function requestCalc() {
   render(r, body);
 }
 
-function renderStats(r, dSpdDigits) {
+function render(r, input) {
+  setText('r-expect', fmt(r.expectOn));
+  setText('r-skill', fmt(r.skill));
+  setText('r-arti', fmtD(r.arti));
+  setText('r-coef', fmtD(r.coef));
+  setText('r-spdbuf', fmtD(r.spdBuff));
+
+  if (current.show.buffCompare) {
+    setText('r-expect-on', fmt(r.expectOn));
+    setText('r-expect-off', fmt(r.expectOff));
+    const diff = r.expectOn - r.expectOff;
+    const pct = r.expectOff > 0 ? (diff / r.expectOff * 100) : 0;
+    setText('r-diff', '+' + fmt(diff));
+    setText('r-diff-pct', '+' + pct.toFixed(1) + '%');
+  }
+
+  if (current.show.reqSpd) {
+    const spd = input.spd, reqSpd = Number(r.reqSpd);
+    setText('r-req', reqSpd);
+    const subEl = document.getElementById('r-req-sub');
+    subEl.innerHTML = spd >= reqSpd
+      ? `현재 <b>${spd}</b> <span class="req-ok">✓ 충족</span>`
+      : `현재 <b>${spd}</b> <span class="req-fail">✗ 부족 (${reqSpd - spd} 더 필요)</span>`;
+  }
+
   setText('d-hp', fmt(r.d.hp));
   setText('d-atk', fmt(r.d.atk));
   setText('d-def', fmt(r.d.def));
-  setText('d-spd', fmtD(r.d.spd, dSpdDigits));
+  setText('d-spd', fmtD(r.d.spd, 0));
   setText('d-cdmg', fmtD(r.d.cdmg) + '%');
   setText('e-hp', fmt(r.e.hp));
   setText('e-atk', fmt(r.e.atk));
@@ -247,31 +356,8 @@ function renderStats(r, dSpdDigits) {
   setText('e-cdmg', fmtD(r.e.cdmg) + '%');
 }
 
-function render(r, input) {
-  setText('r-expect-on', fmt(r.expectOn));
-  setText('r-expect-off', fmt(r.expectOff));
-  setText('r-expect', fmt(r.expectOn));
-  const diff = r.expectOn - r.expectOff;
-  const pct = r.expectOff > 0 ? (diff / r.expectOff * 100) : 0;
-  setText('r-diff', '+' + fmt(diff));
-  setText('r-diff-pct', '+' + pct.toFixed(1) + '%');
-
-  setText('r-skill', fmt(r.skill));
-  setText('r-arti', fmtD(r.arti));
-  setText('r-spdbuf', fmtD(r.spdBuff));
-
-  const spd = input.spd, reqSpd = Number(r.reqSpd);
-  setText('r-req', reqSpd);
-  const subEl = document.getElementById('r-req-sub');
-  subEl.innerHTML = spd >= reqSpd
-    ? `현재 <b>${spd}</b> <span class="req-ok">✓ 충족</span>`
-    : `현재 <b>${spd}</b> <span class="req-fail">✗ 부족 (${reqSpd - spd} 더 필요)</span>`;
-
-  renderStats(r, 0);
-}
-
-document.querySelectorAll('input').forEach(el => el.addEventListener('input', calc));
-requestCalc();
+inputEls().forEach(el => el.addEventListener('input', calc));
+loadMonsters();
 </script>
 </body>
 </html>

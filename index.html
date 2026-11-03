@@ -13,6 +13,11 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 16px; min-height: 100vh; }
+/* 계산기 사이 이동 탭 (공속 계산기 ↔ 딜 계산기) */
+.app-nav { display:flex; justify-content:center; gap:8px; max-width:1300px; margin:0 auto 4px; flex-wrap:wrap; }
+.app-nav a { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:999px; border:1px solid #626d78; background:#1c2128; color:#929ba7; font-size:0.875rem; font-weight:600; text-decoration:none; }
+.app-nav a:hover { color:#e6edf3; border-color:#58a6ff; }
+.app-nav a[aria-current="page"] { color:#e6edf3; border-color:#58a6ff; background:rgba(88,166,255,.15); }
 h1 { text-align: center; font-size: 1.5rem; padding: 12px 0 20px; background: linear-gradient(90deg,#7c6ff7,#58a6ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
 .layout { display: grid; grid-template-columns: 420px 1fr; gap: 16px; max-width: 1300px; margin: 0 auto; }
@@ -154,6 +159,10 @@ tr:last-child td { border-bottom: none; }
 </style>
 </head>
 <body>
+<nav class="app-nav" aria-label="계산기 이동">
+  <a href="/td-spd-cal" aria-current="page">⚡ 공속 계산기</a>
+  <a href="/dmg-cal">⚔️ 딜 계산기</a>
+</nav>
 <h1>⚔️ "시차 전용" 서머너즈 워 공속 계산기(Made by 심판)</h1>
 
 <div class="layout">
